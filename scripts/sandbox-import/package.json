@@ -1,0 +1,24 @@
+{
+  "name": "sandbox-import",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Import sandbox data into Zoho Books",
+  "main": "import-sandbox-data.ts",
+  "scripts": {
+    "import": "npx ts-node import-sandbox-data.ts",
+    "import:dry-run": "npx ts-node import-sandbox-data.ts --dry-run",
+    "import:customers": "npx ts-node import-sandbox-data.ts --entity customers",
+    "import:products": "npx ts-node import-sandbox-data.ts --entity products",
+    "import:salesorders": "npx ts-node import-sandbox-data.ts --entity salesorders",
+    "import:invoices": "npx ts-node import-sandbox-data.ts --entity invoices",
+    "test:small": "npx ts-node import-sandbox-data.ts --dry-run --limit 5"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.0.0"
+  }
+}

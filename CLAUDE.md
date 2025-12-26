@@ -55,7 +55,7 @@ Task 3: "Review test coverage, return summary"
 
 | Limit | Value |
 |-------|-------|
-| Max Task agents | 10 concurrent |
+| Max Task agents | 75 concurrent |
 | Max Zen sessions | 8 concurrent |
 | Tasks spawning Tasks | Not allowed |
 
