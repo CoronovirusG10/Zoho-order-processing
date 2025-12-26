@@ -1,20 +1,41 @@
 /**
- * Resolve Customer Activity
+ * Resolve Customer Activity (Temporal)
  *
  * Resolves the customer name from the spreadsheet against Zoho Books customers.
  * Uses exact/fuzzy matching and provides candidates for user selection if needed.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { ResolveCustomerInput, ResolveCustomerOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function resolveCustomerActivity(
-  input: ResolveCustomerInput,
-  context: InvocationContext
-): Promise<ResolveCustomerOutput> {
+// Input/Output interfaces
+export interface ResolveCustomerInput {
+  caseId: string;
+}
+
+export interface CustomerCandidate {
+  zohoCustomerId: string;
+  zohoCustomerName: string;
+  score: number;
+}
+
+export interface ResolveCustomerOutput {
+  success: boolean;
+  resolved: boolean;
+  needsHuman: boolean;
+  zohoCustomerId?: string;
+  zohoCustomerName?: string;
+  candidates?: CustomerCandidate[];
+}
+
+/**
+ * Resolves a customer against Zoho Books
+ * @param input - The input containing caseId
+ * @returns Resolution result with customer ID or candidates for selection
+ */
+export async function resolveCustomer(input: ResolveCustomerInput): Promise<ResolveCustomerOutput> {
   const { caseId } = input;
 
-  context.log(`[${caseId}] Resolving customer against Zoho`);
+  log.info(`[${caseId}] Resolving customer against Zoho`);
 
   try {
     // TODO: Call Zoho service
@@ -34,13 +55,11 @@ export async function resolveCustomerActivity(
       candidates: [],
     };
 
-    context.log(`[${caseId}] Customer resolved: ${resolutionResult.zohoCustomerName}`);
+    log.info(`[${caseId}] Customer resolved: ${resolutionResult.zohoCustomerName}`);
 
     return resolutionResult;
   } catch (error) {
-    context.error(`[${caseId}] Failed to resolve customer:`, error);
+    log.error(`[${caseId}] Failed to resolve customer: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default resolveCustomerActivity;

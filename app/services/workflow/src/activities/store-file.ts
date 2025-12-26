@@ -1,20 +1,33 @@
 /**
- * Store File Activity
+ * Store File Activity (Temporal)
  *
  * Downloads the uploaded file from Teams and stores it in Azure Blob Storage
  * for long-term retention (5+ years).
  */
 
-import { app, InvocationContext } from '@azure/functions';
-import { StoreFileInput, StoreFileOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-async function storeFileActivity(
-  input: StoreFileInput,
-  context: InvocationContext
-): Promise<StoreFileOutput> {
+// Input/Output interfaces
+export interface StoreFileInput {
+  caseId: string;
+  blobUrl: string;
+}
+
+export interface StoreFileOutput {
+  success: boolean;
+  storedPath: string;
+  sha256: string;
+}
+
+/**
+ * Stores a file from the given URL to Azure Blob Storage
+ * @param input - The input containing caseId and blobUrl
+ * @returns The stored file path and SHA-256 hash
+ */
+export async function storeFile(input: StoreFileInput): Promise<StoreFileOutput> {
   const { caseId, blobUrl } = input;
 
-  context.log(`[${caseId}] Storing file from URL: ${blobUrl}`);
+  log.info(`[${caseId}] Storing file from URL: ${blobUrl}`);
 
   try {
     // TODO: Implement actual file download and storage
@@ -27,7 +40,7 @@ async function storeFileActivity(
     const storedPath = `orders-incoming/${caseId}/original.xlsx`;
     const sha256 = 'mock-sha256-hash'; // TODO: Calculate actual hash
 
-    context.log(`[${caseId}] File stored successfully at: ${storedPath}`);
+    log.info(`[${caseId}] File stored successfully at: ${storedPath}`);
 
     return {
       success: true,
@@ -35,17 +48,7 @@ async function storeFileActivity(
       sha256,
     };
   } catch (error) {
-    context.error(`[${caseId}] Failed to store file:`, error);
+    log.error(`[${caseId}] Failed to store file: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
-};
-
-app.storageQueue('StoreFile', {
-  queueName: 'activity-store-file',
-  connection: 'STORAGE_CONNECTION',
-  handler: async (queueItem: unknown, context: InvocationContext) => {
-    return storeFileActivity(queueItem as StoreFileInput, context);
-  },
-});
-
-export { storeFileActivity };
+}

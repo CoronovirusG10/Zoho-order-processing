@@ -1,0 +1,55 @@
+#cloud-config
+
+package_update: true
+package_upgrade: true
+
+packages:
+  - docker.io
+  - docker-compose
+  - nginx
+  - certbot
+  - python3-certbot-nginx
+  - apache2-utils
+  - jq
+  - curl
+  - git
+
+# Add docker group and configure
+groups:
+  - docker
+
+# Configure users
+users:
+  - default
+  - name: azureuser
+    groups: docker
+    shell: /bin/bash
+
+# Create directories
+runcmd:
+  # Docker setup
+  - systemctl enable docker
+  - systemctl start docker
+
+  # Create application directories
+  - mkdir -p /opt/order-processing
+  - mkdir -p /opt/temporal/postgres-data
+  - chown -R 999:999 /opt/temporal/postgres-data
+
+  # Install Node.js 20 LTS
+  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
+  - apt-get install -y nodejs
+
+  # Install PM2 globally
+  - npm install -g pm2
+
+  # Configure PM2 to start on boot
+  - pm2 startup systemd -u azureuser --hp /home/azureuser
+
+  # Enable nginx
+  - systemctl enable nginx
+
+  # Log completion
+  - echo "Cloud-init complete for Order Processing VM" >> /var/log/cloud-init-order-processing.log
+
+final_message: "Order Processing VM initialized successfully after $UPTIME seconds"

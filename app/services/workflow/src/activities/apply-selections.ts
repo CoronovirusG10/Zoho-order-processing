@@ -1,20 +1,42 @@
 /**
- * Apply Selections Activity
+ * Apply Selections Activity (Temporal)
  *
  * Applies user-selected customer and/or items to the case.
  * Updates canonical data with Zoho IDs.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { ApplySelectionsInput, ApplySelectionsOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function applySelectionsActivity(
-  input: ApplySelectionsInput,
-  context: InvocationContext
-): Promise<ApplySelectionsOutput> {
+// Input/Output interfaces
+export interface CustomerSelection {
+  zohoCustomerId: string;
+}
+
+export interface ItemSelection {
+  zohoItemId: string;
+}
+
+export interface ApplySelectionsInput {
+  caseId: string;
+  selections: {
+    customer?: CustomerSelection;
+    items?: Record<number, ItemSelection>;
+  };
+}
+
+export interface ApplySelectionsOutput {
+  success: boolean;
+}
+
+/**
+ * Applies user selections to case data
+ * @param input - The input containing caseId and selections
+ * @returns Success status
+ */
+export async function applySelections(input: ApplySelectionsInput): Promise<ApplySelectionsOutput> {
   const { caseId, selections } = input;
 
-  context.log(`[${caseId}] Applying user selections`);
+  log.info(`[${caseId}] Applying user selections`);
 
   try {
     // TODO: Apply selections to case data
@@ -26,21 +48,19 @@ export async function applySelectionsActivity(
     // 6. Log selection event to audit trail
 
     if (selections.customer) {
-      context.log(`[${caseId}] Customer selected: ${selections.customer.zohoCustomerId}`);
+      log.info(`[${caseId}] Customer selected: ${selections.customer.zohoCustomerId}`);
     }
 
     if (selections.items) {
       const itemCount = Object.keys(selections.items).length;
-      context.log(`[${caseId}] Items selected: ${itemCount} items`);
+      log.info(`[${caseId}] Items selected: ${itemCount} items`);
     }
 
     return {
       success: true,
     };
   } catch (error) {
-    context.error(`[${caseId}] Failed to apply selections:`, error);
+    log.error(`[${caseId}] Failed to apply selections: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default applySelectionsActivity;

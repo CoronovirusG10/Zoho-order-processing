@@ -1,20 +1,35 @@
 /**
- * Create Zoho Draft Activity
+ * Create Zoho Draft Activity (Temporal)
  *
  * Creates a draft sales order in Zoho Books using the resolved data.
  * Implements idempotency check and queue fallback if Zoho is unavailable.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { CreateZohoDraftInput, CreateZohoDraftOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function createZohoDraftActivity(
-  input: CreateZohoDraftInput,
-  context: InvocationContext
-): Promise<CreateZohoDraftOutput> {
+// Input/Output interfaces
+export interface CreateZohoDraftInput {
+  caseId: string;
+}
+
+export interface CreateZohoDraftOutput {
+  success: boolean;
+  salesorder_id?: string;
+  salesorder_number?: string;
+  status?: string;
+  error?: string;
+  queued?: boolean;
+}
+
+/**
+ * Creates a draft sales order in Zoho Books
+ * @param input - The input containing caseId
+ * @returns Zoho order creation result
+ */
+export async function createZohoDraft(input: CreateZohoDraftInput): Promise<CreateZohoDraftOutput> {
   const { caseId } = input;
 
-  context.log(`[${caseId}] Creating Zoho draft sales order`);
+  log.info(`[${caseId}] Creating Zoho draft sales order`);
 
   try {
     // TODO: Call Zoho service
@@ -32,11 +47,11 @@ export async function createZohoDraftActivity(
       status: 'draft',
     };
 
-    context.log(`[${caseId}] Zoho draft created: ${zohoResult.salesorder_number}`);
+    log.info(`[${caseId}] Zoho draft created: ${zohoResult.salesorder_number}`);
 
     return zohoResult;
   } catch (error) {
-    context.error(`[${caseId}] Failed to create Zoho draft:`, error);
+    log.error(`[${caseId}] Failed to create Zoho draft: ${error instanceof Error ? error.message : String(error)}`);
 
     // Check if this is a transient error (Zoho down)
     const isTransient = error instanceof Error &&
@@ -45,7 +60,7 @@ export async function createZohoDraftActivity(
        error.message.includes('503'));
 
     if (isTransient) {
-      context.warn(`[${caseId}] Zoho appears to be unavailable, queueing order`);
+      log.warn(`[${caseId}] Zoho appears to be unavailable, queueing order`);
       return {
         success: false,
         queued: true,
@@ -56,5 +71,3 @@ export async function createZohoDraftActivity(
     throw error;
   }
 }
-
-export default createZohoDraftActivity;

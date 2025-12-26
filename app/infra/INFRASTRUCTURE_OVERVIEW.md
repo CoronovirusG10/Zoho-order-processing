@@ -2,365 +2,514 @@
 
 ## Summary
 
-This infrastructure deployment creates a complete, production-ready Teams → Excel → AI Committee → Zoho Draft Sales Orders application in Azure Sweden Central region.
+This infrastructure deployment creates a complete, production-ready Teams to Excel to AI Committee to Zoho Draft Sales Orders application running on an Azure Virtual Machine in Sweden Central region.
 
 ## Architecture Diagram (Text)
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          TENANT B (Teams Users)                      │
-│  ┌──────────────┐                                                    │
-│  │ Teams Client │──────────────────────┐                             │
-│  └──────────────┘                      │                             │
-└────────────────────────────────────────┼─────────────────────────────┘
-                                         │
-                                         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    TENANT A (Azure Hosting)                          │
-│                      Sweden Central Region                           │
-│                                                                       │
-│  ┌───────────────────────────────────────────────────────────────┐  │
-│  │                      Resource Group                             │  │
-│  │                order-processing-{env}-rg                        │  │
-│  │                                                                 │  │
-│  │  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐ │  │
-│  │  │  Azure Bot   │      │ Static Web   │      │ Application  │ │  │
-│  │  │   Service    │      │     App      │      │  Insights    │ │  │
-│  │  │   (Teams)    │      │ (React Tab)  │      │              │ │  │
-│  │  └──────┬───────┘      └──────────────┘      └──────────────┘ │  │
-│  │         │                                                       │  │
-│  │         ▼                                                       │  │
-│  │  ┌──────────────────────────────────────────────────────────┐ │  │
-│  │  │           Function Apps (Python 3.11)                     │ │  │
-│  │  │  ┌────────────┐  ┌────────────┐  ┌────────────┐         │ │  │
-│  │  │  │ Workflow   │  │  Parser    │  │   Zoho     │         │ │  │
-│  │  │  │Orchestrator│  │ Validator  │  │   Client   │         │ │  │
-│  │  │  └──────┬─────┘  └──────┬─────┘  └──────┬─────┘         │ │  │
-│  │  └─────────┼────────────────┼────────────────┼──────────────┘ │  │
-│  │            │                │                │                 │  │
-│  │            ▼                ▼                ▼                 │  │
-│  │  ┌──────────────────────────────────────────────────────────┐ │  │
-│  │  │                Storage Account                            │ │  │
-│  │  │  Containers:                        Queues:              │ │  │
-│  │  │  • orders-incoming                  • case-processing    │ │  │
-│  │  │  • orders-audit (immutable)         • zoho-retry        │ │  │
-│  │  │  • logs-archive                                          │ │  │
-│  │  │  • committee-evidence                                    │ │  │
-│  │  └──────────────────────────────────────────────────────────┘ │  │
-│  │                                                                 │  │
-│  │  ┌──────────────────────────────────────────────────────────┐ │  │
-│  │  │                  Cosmos DB (NoSQL)                        │ │  │
-│  │  │  Containers:                                              │ │  │
-│  │  │  • cases (partition: /tenantId)                          │ │  │
-│  │  │  • fingerprints (partition: /fingerprint)                │ │  │
-│  │  │  • events (partition: /caseId)                           │ │  │
-│  │  │  • agentThreads (partition: /threadId, TTL 30d)          │ │  │
-│  │  │  • committeeVotes (partition: /caseId)                   │ │  │
-│  │  └──────────────────────────────────────────────────────────┘ │  │
-│  │                                                                 │  │
-│  │  ┌──────────────────────────────────────────────────────────┐ │  │
-│  │  │                    Key Vault                              │ │  │
-│  │  │  Secrets:                                                 │ │  │
-│  │  │  • ZohoClientId, ZohoClientSecret, ZohoRefreshToken      │ │  │
-│  │  │  • TeamsAppId, TeamsAppPassword                          │ │  │
-│  │  │  • Storage/Cosmos/AppInsights connection strings         │ │  │
-│  │  └──────────────────────────────────────────────────────────┘ │  │
-│  │                                                                 │  │
-│  │  ┌──────────────────────────────────────────────────────────┐ │  │
-│  │  │              Log Analytics Workspace                      │ │  │
-│  │  │  • Application logs (730 day retention)                  │ │  │
-│  │  │  • Metrics and traces                                    │ │  │
-│  │  │  • Export to blob for 5 year retention                   │ │  │
-│  │  └──────────────────────────────────────────────────────────┘ │  │
-│  │                                                                 │  │
-│  │  [Optional: VNet + Private Endpoints for Production]           │  │
-│  │                                                                 │  │
-│  └─────────────────────────────────────────────────────────────────┘  │
-│                                                                       │
-│  External Integrations:                                              │
-│  • Azure AI Foundry (existing Hub/Project)                          │
-│  • Zoho Books API (EU DC)                                           │
-│  • External AI Providers (Google Gemini, xAI - optional)            │
-│                                                                       │
-└───────────────────────────────────────────────────────────────────────┘
++-------------------------------------------------------------------------+
+|                          TENANT B (Teams Users)                          |
+|  +----------------+                                                      |
+|  | Teams Client   |----------------------+                               |
+|  +----------------+                      |                               |
++------------------------------------------|---------------------------------+
+                                           |
+                                           v
++-------------------------------------------------------------------------+
+|                    TENANT A (Azure Hosting)                              |
+|                      Sweden Central Region                               |
+|                                                                          |
+|  +-------------------------------------------------------------------+  |
+|  |                   Resource Group: pippai-rg                        |  |
+|  |                                                                    |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |  |              Virtual Machine: pippai-vm-swedencentral         | |  |
+|  |  |              Ubuntu 22.04 LTS | Standard_D4s_v3               | |  |
+|  |  |              System-Assigned Managed Identity                  | |  |
+|  |  |                                                                | |  |
+|  |  |  +------------------+  +------------------+  +--------------+  | |  |
+|  |  |  |   nginx          |  |   PM2 Process   |  | Application  |  | |  |
+|  |  |  | Reverse Proxy    |  |    Manager      |  |   Logs       |  | |  |
+|  |  |  | (Port 80/443)    |  |  (Node.js Apps) |  |              |  | |  |
+|  |  |  +--------+---------+  +--------+--------+  +--------------+  | |  |
+|  |  |           |                     |                              | |  |
+|  |  |           v                     v                              | |  |
+|  |  |  +------------------+  +-----------------------------------+  | |  |
+|  |  |  |  Teams Bot       |  |         Temporal.io Server        |  | |  |
+|  |  |  |  Endpoint        |  |  +-------------+ +-------------+  |  | |  |
+|  |  |  |  /api/messages   |  |  | Workflow    | | Worker      |  |  | |  |
+|  |  |  +------------------+  |  | Orchestrator| | Processes   |  |  | |  |
+|  |  |                        |  +-------------+ +-------------+  |  | |  |
+|  |  |                        +-----------------------------------+  | |  |
+|  |  |                                     |                          | |  |
+|  |  |                                     v                          | |  |
+|  |  |  +----------------------------------------------------------+ | |  |
+|  |  |  |              PostgreSQL (Temporal Persistence)            | | |  |
+|  |  |  |  - Workflow execution history                             | | |  |
+|  |  |  |  - Activity state and timers                              | | |  |
+|  |  |  |  - Visibility data for queries                            | | |  |
+|  |  |  +----------------------------------------------------------+ | |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |                                                                    |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |  |                    Storage Account                            | |  |
+|  |  |  Containers:                        Queues:                   | |  |
+|  |  |  - orders-incoming                  - case-processing         | |  |
+|  |  |  - orders-audit (immutable)         - zoho-retry              | |  |
+|  |  |  - logs-archive                                               | |  |
+|  |  |  - committee-evidence                                         | |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |                                                                    |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |  |                    Cosmos DB (NoSQL)                          | |  |
+|  |  |  Containers:                                                  | |  |
+|  |  |  - cases (partition: /tenantId)                               | |  |
+|  |  |  - fingerprints (partition: /fingerprint)                     | |  |
+|  |  |  - events (partition: /caseId)                                | |  |
+|  |  |  - agentThreads (partition: /threadId, TTL 30d)               | |  |
+|  |  |  - committeeVotes (partition: /caseId)                        | |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |                                                                    |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |  |                      Key Vault                                | |  |
+|  |  |  Secrets:                                                     | |  |
+|  |  |  - ZohoClientId, ZohoClientSecret, ZohoRefreshToken           | |  |
+|  |  |  - TeamsAppId, TeamsAppPassword                               | |  |
+|  |  |  - Storage/Cosmos/AppInsights connection strings              | |  |
+|  |  |  - PostgreSQL connection credentials                          | |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |                                                                    |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |  |                Log Analytics Workspace                        | |  |
+|  |  |  - Application logs (730 day retention)                       | |  |
+|  |  |  - VM metrics and diagnostics                                 | |  |
+|  |  |  - Export to blob for 5 year retention                        | |  |
+|  |  +--------------------------------------------------------------+ |  |
+|  |                                                                    |  |
+|  +--------------------------------------------------------------------+  |
+|                                                                          |
+|  External Integrations:                                                  |
+|  - Azure AI Foundry (existing Hub/Project)                               |
+|  - Zoho Books API (EU DC)                                                |
+|  - External AI Providers (Google Gemini, xAI - optional)                 |
+|                                                                          |
++--------------------------------------------------------------------------+
 ```
+
+## VM-Only Architecture
+
+This deployment uses a single Azure Virtual Machine to host all application components, replacing the previous serverless (Azure Functions) and container-based approaches.
+
+### Why VM-Only?
+
+1. **Simplified Operations**: Single deployment target, easier debugging
+2. **Cost Predictable**: Fixed monthly cost vs. pay-per-execution variability
+3. **Temporal.io Integration**: Native support for durable workflow execution
+4. **Local PostgreSQL**: Temporal persistence without Azure Database costs
+5. **Full Control**: Direct access to OS, networking, and process management
+
+## Core Components
+
+### Virtual Machine
+
+| Property | Value |
+|----------|-------|
+| Name | `pippai-vm-swedencentral` |
+| SKU | `Standard_D4s_v3` (4 vCPU, 16 GB RAM) |
+| OS | Ubuntu 22.04 LTS |
+| Identity | System-Assigned Managed Identity |
+| Resource Group | `pippai-rg` |
+| Region | Sweden Central |
+
+### Temporal.io Server
+
+Temporal provides durable workflow execution with automatic retries, timeouts, and state persistence.
+
+| Component | Description |
+|-----------|-------------|
+| **Temporal Server** | Core workflow orchestration engine |
+| **Workflow Workers** | Execute order processing workflows |
+| **Activity Workers** | Run individual activities (parse, validate, submit) |
+| **Web UI** | Workflow monitoring and debugging (port 8080) |
+| **History Service** | Persists workflow execution history |
+
+**Key Workflows:**
+- `OrderProcessingWorkflow` - Main order lifecycle
+- `ExcelParsingActivity` - Parse and validate Excel files
+- `AICommitteeActivity` - Multi-model voting consensus
+- `ZohoSubmissionActivity` - Create draft sales orders
+
+### PostgreSQL (Temporal Persistence)
+
+Local PostgreSQL instance provides persistence for Temporal.io.
+
+| Database | Purpose |
+|----------|---------|
+| `temporal` | Workflow execution state |
+| `temporal_visibility` | Workflow search/query index |
+
+**Configuration:**
+- Version: PostgreSQL 14+
+- Data directory: `/var/lib/postgresql/data`
+- Backup: Daily pg_dump to Azure Blob Storage
+
+### PM2 Process Manager
+
+PM2 manages all Node.js application processes with automatic restarts and monitoring.
+
+| Process | Description | Instances |
+|---------|-------------|-----------|
+| `temporal-server` | Temporal.io server | 1 |
+| `temporal-worker` | Workflow/activity workers | 2 |
+| `teams-bot` | Teams bot API endpoint | 2 |
+| `web-ui` | Admin dashboard | 1 |
+
+**PM2 Features Used:**
+- Cluster mode for multi-instance scaling
+- Auto-restart on failure
+- Log rotation and management
+- Startup script for system boot
+- Resource monitoring
+
+**Common Commands:**
+```bash
+pm2 list                    # Show all processes
+pm2 logs                    # Stream all logs
+pm2 monit                   # Real-time monitoring
+pm2 restart all             # Restart all processes
+pm2 save && pm2 startup     # Persist configuration
+```
+
+### nginx Reverse Proxy
+
+nginx handles incoming HTTP/HTTPS traffic and routes to backend services.
+
+| Route | Backend | Description |
+|-------|---------|-------------|
+| `/api/messages` | `localhost:3978` | Teams bot webhook |
+| `/temporal` | `localhost:8080` | Temporal Web UI |
+| `/health` | `localhost:3000` | Health check endpoint |
+| `/` | `localhost:3000` | Admin dashboard |
+
+**Configuration:** `/etc/nginx/sites-available/order-processing`
+
+**SSL/TLS:**
+- Certificates managed via Let's Encrypt (certbot)
+- Auto-renewal via systemd timer
+- TLS 1.2+ enforced
+
+## Networking
+
+### Virtual Network Integration
+
+| Component | Value |
+|-----------|-------|
+| VNet | `pippai-vnet` |
+| Subnet | `default` (10.0.0.0/24) |
+| NSG | `pippai-vm-nsg` |
+| Public IP | Static, associated with VM |
+
+### Network Security Group Rules
+
+| Priority | Name | Port | Source | Action |
+|----------|------|------|--------|--------|
+| 100 | AllowHTTPS | 443 | Any | Allow |
+| 110 | AllowHTTP | 80 | Any | Allow |
+| 120 | AllowSSH | 22 | Admin IPs | Allow |
+| 200 | DenyAllInbound | * | Any | Deny |
+
+### DNS
+
+- Custom domain: `order-processing.pippai.com` (A record to VM public IP)
+- Azure Private DNS zones for internal service resolution
+
+## Security
+
+### System-Assigned Managed Identity
+
+The VM uses a System-Assigned Managed Identity for Azure service authentication.
+
+| Service | Role | Purpose |
+|---------|------|---------|
+| Key Vault | Key Vault Secrets User | Read secrets |
+| Storage Account | Storage Blob Data Contributor | Read/write blobs |
+| Cosmos DB | Cosmos DB Data Contributor | Read/write documents |
+| Application Insights | Monitoring Contributor | Write telemetry |
+
+**Benefits:**
+- No credential storage on VM
+- Automatic token refresh
+- Azure AD-based access control
+- Audit trail in Azure AD logs
+
+### Key Vault Integration
+
+Secrets are fetched at application startup using Managed Identity:
+
+```javascript
+const { DefaultAzureCredential } = require("@azure/identity");
+const { SecretClient } = require("@azure/keyvault-secrets");
+
+const credential = new DefaultAzureCredential();
+const client = new SecretClient(vaultUrl, credential);
+const secret = await client.getSecret("ZohoClientSecret");
+```
+
+### Data Protection
+
+- TLS 1.2+ for all external connections
+- Disk encryption (Azure Disk Encryption)
+- PostgreSQL data encrypted at rest
+- Immutable storage for audit blobs
+
+## Resource Tagging
+
+All resources are tagged for cost tracking and organization.
+
+| Tag | Value |
+|-----|-------|
+| `Project` | `order-processing` |
+| `CostCenter` | `zoho` |
+| `Environment` | `dev` or `prod` |
+| `ManagedBy` | `bicep` |
 
 ## Files Created
 
-### Main Templates
-- `main.bicep` - Main orchestration template (subscription-level deployment)
-- `main.parameters.dev.json` - Development environment parameters
-- `main.parameters.prod.json` - Production environment parameters
+### Infrastructure Templates
+- `main.bicep` - Main orchestration template
+- `main.parameters.dev.json` - Development parameters
+- `main.parameters.prod.json` - Production parameters
 
-### Module Templates (12 modules)
-1. `modules/storage.bicep` - Storage account with containers, queues, lifecycle policies
-2. `modules/cosmos.bicep` - Cosmos DB with 5 containers and backup policy
-3. `modules/keyvault.bicep` - Key Vault with RBAC authorization
-4. `modules/appinsights.bicep` - Application Insights (workspace-based)
-5. `modules/loganalytics.bicep` - Log Analytics workspace with solutions
-6. `modules/bot.bicep` - Azure Bot Service with Teams channel
-7. `modules/functionapp.bicep` - Function App template (reusable for 3 apps)
-8. `modules/staticwebapp.bicep` - Static Web App for Teams tab
-9. `modules/containerapp.bicep` - Container App for bot runtime (prod)
-10. `modules/vnet.bicep` - Virtual Network with subnets for private endpoints
-11. `modules/secrets.bicep` - Key Vault secrets population
-12. `modules/rbac.bicep` - RBAC role assignments for managed identities
+### Module Templates
+1. `modules/vm.bicep` - Virtual Machine with extensions
+2. `modules/storage.bicep` - Storage account with containers
+3. `modules/cosmos.bicep` - Cosmos DB configuration
+4. `modules/keyvault.bicep` - Key Vault with RBAC
+5. `modules/appinsights.bicep` - Application Insights
+6. `modules/loganalytics.bicep` - Log Analytics workspace
+7. `modules/vnet.bicep` - Virtual Network configuration
+8. `modules/nsg.bicep` - Network Security Group rules
+9. `modules/rbac.bicep` - Role assignments for Managed Identity
 
-### Scripts
-1. `scripts/deploy.sh` - Bash deployment script with validation
-2. `scripts/deploy.ps1` - PowerShell deployment script
-3. `scripts/setup-secrets.sh` - Interactive secrets configuration
-4. `scripts/validate.sh` - Post-deployment validation
+### Configuration Scripts
+1. `scripts/vm-setup.sh` - VM initialization (nginx, PM2, PostgreSQL)
+2. `scripts/temporal-install.sh` - Temporal.io installation
+3. `scripts/deploy-app.sh` - Application deployment
+4. `scripts/backup-postgres.sh` - PostgreSQL backup to blob
 
 ### Documentation
-1. `README.md` - Comprehensive deployment guide
-2. `DEPLOYMENT_CHECKLIST.md` - Step-by-step deployment checklist
+1. `README.md` - Deployment guide
+2. `DEPLOYMENT_CHECKLIST.md` - Step-by-step checklist
 3. `INFRASTRUCTURE_OVERVIEW.md` - This file
-
-### Configuration
-1. `.bicepconfig.json` - Bicep linting and analyzer rules
 
 ## Resource Naming Convention
 
-| Resource Type | Naming Pattern | Example (dev) |
-|--------------|----------------|---------------|
-| Resource Group | `order-processing-{env}-rg` | `order-processing-dev-rg` |
+| Resource Type | Naming Pattern | Example |
+|--------------|----------------|---------|
+| Resource Group | `pippai-rg` | `pippai-rg` |
+| Virtual Machine | `pippai-vm-{region}` | `pippai-vm-swedencentral` |
 | Storage Account | `orderstor{unique6}` | `orderstorabc123` |
 | Cosmos DB | `order-processing-{env}-cosmos` | `order-processing-dev-cosmos` |
-| Key Vault | `orderkv{unique6}` | `orderkvabc123` |
-| Function App | `order-{function}-{env}-func` | `order-workflow-dev-func` |
-| Bot Service | `order-processing-{env}-bot` | `order-processing-dev-bot` |
-| Static Web App | `order-processing-{env}-swa` | `order-processing-dev-swa` |
+| Key Vault | `pippai-keyvault-{env}` | `pippai-keyvault-dev` |
 | Log Analytics | `order-processing-{env}-logs` | `order-processing-dev-logs` |
 | App Insights | `order-processing-{env}-ai` | `order-processing-dev-ai` |
-
-## Key Features
-
-### Security
-- **Managed Identity**: All services use system-assigned managed identities
-- **RBAC**: Role-based access control (no connection string access)
-- **Key Vault**: Centralized secrets management with audit logging
-- **Private Endpoints**: Storage, Cosmos, Key Vault (production only)
-- **TLS 1.2**: Enforced minimum TLS version
-- **Immutable Storage**: Audit container with WORM policy
-- **Soft Delete**: 30-90 day retention for accidental deletions
-
-### Compliance & Audit
-- **5-Year Retention**: All audit artifacts stored for minimum 5 years
-- **Lifecycle Management**: Hot → Cool → Archive → Delete
-- **Diagnostic Settings**: All resources log to Log Analytics
-- **Change Feed**: Blob change tracking (90 days)
-- **Continuous Backup**: Cosmos DB point-in-time restore (7 days)
-- **Idempotency**: Fingerprint-based duplicate prevention
-
-### High Availability (Production)
-- **Zone Redundancy**: Cosmos DB and Storage in prod
-- **Multi-Instance**: Function Apps with minimum 2 instances
-- **Auto-Scaling**: Elastic scaling for Function Apps and Container Apps
-- **Health Probes**: Liveness and readiness checks
-
-### Monitoring & Observability
-- **Application Insights**: Full distributed tracing
-- **Log Analytics**: 730-day retention with KQL queries
-- **Metrics**: Real-time metrics for all resources
-- **Alerts**: Configurable alerts for failures and thresholds
-- **Dashboards**: Azure Monitor workbooks support
+| VNet | `pippai-vnet` | `pippai-vnet` |
+| NSG | `pippai-vm-nsg` | `pippai-vm-nsg` |
 
 ## Cost Optimization
 
-### Development Environment
-- Cosmos DB: Serverless (pay per request)
-- Functions: Consumption plan (pay per execution)
-- Storage: LRS (locally redundant)
-- No private endpoints
-- Reduced log retention (90 days)
-- **Estimated Monthly Cost**: $50-150 (low usage)
+### VM-Only Costs
 
-### Production Environment
-- Cosmos DB: Provisioned (dedicated capacity)
-- Functions: Premium plan (always-on, VNet)
-- Storage: ZRS (zone redundant)
-- Private endpoints enabled
-- Full log retention (730 days)
-- **Estimated Monthly Cost**: $500-1500 (moderate usage, 100-200 orders/day)
+| Resource | Monthly Cost (Est.) |
+|----------|---------------------|
+| VM (Standard_D4s_v3) | $140-160 |
+| Managed Disk (128 GB) | $10 |
+| Public IP | $4 |
+| Bandwidth (50 GB) | $5 |
+| Storage Account | $10-30 |
+| Cosmos DB (Serverless) | $10-50 |
+| Key Vault | $1 |
+| Log Analytics | $10-30 |
+| **Total** | **$190-290/month** |
 
-### Cost Savings Tips
-1. Use serverless Cosmos DB for dev/test
-2. Enable Cosmos DB free tier for dev
-3. Use Consumption plan for low-volume scenarios
-4. Configure lifecycle policies to archive old data
-5. Set daily quota on Log Analytics workspace
-6. Review and delete unused resources regularly
+### Cost Savings vs. Serverless
+
+| Architecture | Monthly Cost | Complexity |
+|--------------|--------------|------------|
+| Azure Functions + Container Apps | $500-1500 | High |
+| VM-Only (this approach) | $190-290 | Low |
+| **Savings** | **60-80%** | Simplified |
+
+### Additional Savings Tips
+
+1. **Reserved Instance**: 1-year reservation saves 30-40%
+2. **Auto-shutdown**: Schedule VM shutdown for non-business hours (dev)
+3. **Right-sizing**: Monitor CPU/memory and adjust VM SKU
+4. **Blob lifecycle**: Archive old audit data to cool/archive tier
 
 ## Deployment Time
 
 | Phase | Time | Notes |
 |-------|------|-------|
-| Validation | 1-2 min | Template validation and what-if |
-| Infrastructure | 15-25 min | All Azure resources |
-| RBAC Propagation | 5-10 min | Role assignments to take effect |
-| Secrets Setup | 5 min | Manual secret configuration |
-| Code Deployment | 10-15 min | Function Apps and Static Web App |
-| **Total** | **35-55 min** | First-time deployment |
+| VM Provisioning | 5-10 min | Including extensions |
+| Software Setup | 10-15 min | nginx, PM2, PostgreSQL, Temporal |
+| Application Deploy | 5-10 min | Code and configuration |
+| DNS Propagation | 5-30 min | External DNS updates |
+| **Total** | **25-65 min** | First-time deployment |
 
-Subsequent deployments are faster (5-10 minutes) as only changed resources are updated.
+Subsequent deployments: 5-10 minutes (application updates only).
 
 ## Dependencies
 
 ### External Services
-1. **Azure AI Foundry**: Existing Hub and Project (referenced by resource ID)
+1. **Azure AI Foundry**: Existing Hub and Project
 2. **Zoho Books**: Active account in EU datacenter with OAuth app
 3. **Teams**: Tenant B with app registration permissions
 
-### Azure Services (all in Sweden Central)
+### Azure Services (Sweden Central)
+- Virtual Machine (pippai-rg)
 - Storage Account
 - Cosmos DB
 - Key Vault
-- Function Apps (Python 3.11)
-- Bot Service
-- Static Web App
 - Application Insights
 - Log Analytics
-- (Optional) Container Apps
-- (Optional) Virtual Network
+- Virtual Network
 
-## Security Considerations
+## Monitoring & Observability
 
-### Secrets Management
-- Never commit secrets to source control
-- Use Key Vault for all secrets
-- Use parameter files only for non-sensitive configuration
-- Rotate secrets regularly (Zoho refresh token, Teams app secret)
+### Application Insights
 
-### Network Security
-- Enable private endpoints for production
-- Use VNet integration for Function Apps in production
-- Configure NSG rules appropriately
-- Disable public access when using private endpoints
+- Distributed tracing for all requests
+- Custom metrics for workflow execution
+- Dependency tracking (Cosmos, Storage, Zoho)
+- Live metrics stream
 
-### Access Control
-- Use managed identities for all Azure service-to-service auth
-- Enable RBAC on Key Vault (not access policies)
-- Follow principle of least privilege
-- Regularly review RBAC assignments
+### Log Analytics Queries
 
-### Data Protection
-- Enable immutable storage for audit trail
-- Configure lifecycle policies for data retention
-- Use encryption at rest (default for all services)
-- Enable soft delete on Key Vault (90 days)
-- Configure Cosmos DB backup retention
+```kusto
+// VM performance metrics
+Perf
+| where Computer == "pippai-vm-swedencentral"
+| where CounterName in ("% Processor Time", "Available MBytes")
+| summarize avg(CounterValue) by CounterName, bin(TimeGenerated, 5m)
 
-## Testing Strategy
+// Application errors
+AppTraces
+| where SeverityLevel >= 3
+| order by TimeGenerated desc
+| take 100
 
-### Unit Tests
-- Bicep template syntax validation
-- Parameter file schema validation
-- Resource naming convention checks
+// Temporal workflow execution
+customEvents
+| where name == "WorkflowCompleted"
+| summarize count() by bin(timestamp, 1h)
+```
 
-### Integration Tests
-1. Deploy to dev environment
-2. Validate all resources created
-3. Check RBAC assignments
-4. Verify Key Vault access
-5. Test Function App connectivity to dependencies
+### Alerting
 
-### End-to-End Tests
-1. Upload Excel file via Teams bot
-2. Verify blob storage upload
-3. Check Cosmos DB case record
-4. Test parser function execution
-5. Verify audit bundle creation
-6. Test Zoho API integration (sandbox)
+| Alert | Condition | Action |
+|-------|-----------|--------|
+| VM Down | Heartbeat missing > 5 min | Email, SMS |
+| High CPU | CPU > 80% for 10 min | Email |
+| Disk Full | Disk > 90% | Email |
+| Workflow Failures | > 5 failures/hour | Email |
 
 ## Troubleshooting Guide
 
 ### Common Issues
 
-**Issue**: Deployment fails with "conflict" error
-- **Cause**: Resource already exists or name collision
-- **Solution**: Delete existing resource or change uniqueSuffix
+**Issue**: VM not responding
+- **Cause**: Service crash or network issue
+- **Solution**: Check Azure portal, restart VM, review boot diagnostics
 
-**Issue**: Function App can't access Key Vault
-- **Cause**: RBAC assignments not propagated yet
-- **Solution**: Wait 5-10 minutes for RBAC to propagate
+**Issue**: Temporal workflows stuck
+- **Cause**: PostgreSQL connection or worker crash
+- **Solution**: `pm2 restart temporal-worker`, check PostgreSQL logs
 
-**Issue**: Private endpoint DNS resolution fails
-- **Cause**: DNS not configured correctly
-- **Solution**: Use Azure Private DNS zones (auto-configured in template)
+**Issue**: Teams bot not responding
+- **Cause**: nginx misconfiguration or bot process down
+- **Solution**: Check nginx logs, `pm2 logs teams-bot`
 
-**Issue**: Cosmos DB throttling (429 errors)
-- **Cause**: Exceeded RU/s in serverless mode
-- **Solution**: Switch to provisioned mode or increase RU/s
-
-**Issue**: Storage lifecycle policy not working
-- **Cause**: Policy syntax error or timing
-- **Solution**: Verify policy JSON and wait 24 hours for first run
+**Issue**: Cannot authenticate to Azure services
+- **Cause**: Managed Identity not assigned roles
+- **Solution**: Verify RBAC assignments in Azure portal
 
 ### Diagnostic Commands
 
 ```bash
-# Check deployment status
-az deployment sub show --name <deployment-name> --query properties.provisioningState
+# SSH to VM
+ssh azureuser@<vm-public-ip>
 
-# View deployment errors
-az deployment sub show --name <deployment-name> --query properties.error
+# Check all services
+pm2 list
+systemctl status nginx
+systemctl status postgresql
 
-# List resources in group
-az resource list --resource-group order-processing-<env>-rg --output table
+# View application logs
+pm2 logs --lines 100
 
-# Check Function App logs
-az functionapp log tail --name <function-name> --resource-group <rg-name>
+# Check Temporal server
+curl http://localhost:8080/health
 
-# Test Key Vault access
-az keyvault secret list --vault-name <kv-name>
+# Test managed identity
+curl -H "Metadata: true" "http://169.254.169.254/metadata/identity/oauth2/token?api-version=2019-08-01&resource=https://vault.azure.net"
 
-# Check RBAC assignments
-az role assignment list --assignee <principal-id> --all
+# PostgreSQL status
+sudo -u postgres psql -c "SELECT * FROM pg_stat_activity WHERE datname = 'temporal';"
 ```
 
 ## Maintenance
 
 ### Regular Tasks
-- [ ] Review Application Insights for errors (weekly)
-- [ ] Check Cosmos DB RU consumption (weekly)
-- [ ] Verify backup retention policies (monthly)
-- [ ] Review storage costs and lifecycle (monthly)
+
+- [ ] Review PM2 logs for errors (daily)
+- [ ] Check disk space usage (weekly)
+- [ ] Review Application Insights for trends (weekly)
+- [ ] Verify PostgreSQL backups (weekly)
+- [ ] Update OS packages (monthly)
 - [ ] Rotate secrets (quarterly)
-- [ ] Update Function App runtime (quarterly)
-- [ ] Review RBAC assignments (quarterly)
 - [ ] Test disaster recovery (annually)
 
+### Backup Strategy
+
+| Data | Method | Frequency | Retention |
+|------|--------|-----------|-----------|
+| PostgreSQL | pg_dump to Blob | Daily | 30 days |
+| Application Code | Git + deployment script | On deploy | Git history |
+| Configuration | Git + Key Vault | On change | Versioned |
+| Audit Blobs | Immutable storage | N/A | 5 years |
+
 ### Updates
-- Keep Bicep templates in version control
-- Use semantic versioning for template releases
-- Test updates in dev before prod
-- Document all infrastructure changes
-- Use what-if analysis before production deployments
+
+1. **OS Updates**: `sudo apt update && sudo apt upgrade`
+2. **Node.js Updates**: Use nvm for version management
+3. **Temporal Updates**: Follow Temporal upgrade guide
+4. **Application Updates**: `git pull && pm2 reload all`
 
 ## Next Steps After Deployment
 
-1. **Configure Secrets** - Run `scripts/setup-secrets.sh`
-2. **Deploy Application Code** - Build and deploy Function Apps
-3. **Register Teams App** - Create app registration in Tenant B
-4. **Configure Foundry** - Link to Hub/Project and deploy agent
-5. **Test End-to-End** - Upload Excel file and create draft order
-6. **Setup Monitoring** - Configure alerts and dashboards
-7. **Document Runbooks** - Create operational procedures
-8. **Train Team** - Onboard operations and support staff
+1. **Verify VM Access** - SSH and confirm all services running
+2. **Configure DNS** - Point domain to VM public IP
+3. **Setup SSL** - Run certbot for Let's Encrypt certificates
+4. **Configure Secrets** - Populate Key Vault via portal or CLI
+5. **Deploy Application** - Run deployment script
+6. **Register Teams App** - Create app registration in Tenant B
+7. **Test End-to-End** - Upload Excel file and verify workflow
+8. **Setup Monitoring** - Configure alerts in Application Insights
 
 ## Support and Resources
 
-- **Azure Documentation**: https://learn.microsoft.com/azure/
-- **Bicep Documentation**: https://learn.microsoft.com/azure/azure-resource-manager/bicep/
-- **Teams Platform**: https://learn.microsoft.com/microsoftteams/platform/
+- **Azure VM Documentation**: https://learn.microsoft.com/azure/virtual-machines/
+- **Temporal.io Documentation**: https://docs.temporal.io/
+- **PM2 Documentation**: https://pm2.keymetrics.io/docs/
+- **nginx Documentation**: https://nginx.org/en/docs/
 - **Zoho Books API**: https://www.zoho.com/books/api/v3/
 - **Solution Design**: `/data/order-processing/SOLUTION_DESIGN.md`
-- **MVP Guide**: `/data/order-processing/MVP_AND_HOWTO.md`
 
 ---
 
-**Version**: 1.0.0
-**Last Updated**: 2025-12-25
+**Version**: 2.0.0
+**Last Updated**: 2025-12-26
+**Architecture**: VM-Only (Temporal.io + PM2)
 **Target Region**: Sweden Central
-**Terraform Alternative**: Not provided (Bicep only)
+**Resource Group**: pippai-rg

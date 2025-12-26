@@ -1,20 +1,45 @@
 /**
- * Notify User Activity
+ * Notify User Activity (Temporal)
  *
  * Sends adaptive cards and messages to the user in Teams.
  * Handles different notification types (blocked, issues, approval ready, complete).
  */
 
-import { InvocationContext } from '@azure/functions';
-import { NotifyUserInput, NotifyUserOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function notifyUserActivity(
-  input: NotifyUserInput,
-  context: InvocationContext
-): Promise<NotifyUserOutput> {
+// Notification types
+export type NotificationType =
+  | 'blocked'
+  | 'issues'
+  | 'selection_needed'
+  | 'ready_for_approval'
+  | 'complete'
+  | 'failed';
+
+// Input/Output interfaces
+export interface NotifyUserInput {
+  caseId: string;
+  type: NotificationType;
+  reason?: string;
+  issues?: unknown[];
+  candidates?: unknown;
+  zohoOrderId?: string;
+}
+
+export interface NotifyUserOutput {
+  success: boolean;
+  messageId?: string;
+}
+
+/**
+ * Sends a notification to the user in Teams
+ * @param input - The input containing caseId, type, and notification details
+ * @returns Success status and message ID
+ */
+export async function notifyUser(input: NotifyUserInput): Promise<NotifyUserOutput> {
   const { caseId, type } = input;
 
-  context.log(`[${caseId}] Sending notification to user. Type: ${type}`);
+  log.info(`[${caseId}] Sending notification to user. Type: ${type}`);
 
   try {
     // TODO: Call Teams bot service
@@ -47,16 +72,14 @@ export async function notifyUserActivity(
         break;
     }
 
-    context.log(`[${caseId}] Notification sent: ${message}`);
+    log.info(`[${caseId}] Notification sent: ${message}`);
 
     return {
       success: true,
       messageId: `msg-${Date.now()}`,
     };
   } catch (error) {
-    context.error(`[${caseId}] Failed to send notification:`, error);
+    log.error(`[${caseId}] Failed to send notification: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default notifyUserActivity;

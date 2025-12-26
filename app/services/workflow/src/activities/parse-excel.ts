@@ -1,20 +1,41 @@
 /**
- * Parse Excel Activity
+ * Parse Excel Activity (Temporal)
  *
  * Calls the parser service to extract structured data from the Excel file.
  * Handles blocking scenarios (formulas, protected workbooks, multi-order).
  */
 
-import { InvocationContext } from '@azure/functions';
-import { ParseExcelInput, ParseExcelOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function parseExcelActivity(
-  input: ParseExcelInput,
-  context: InvocationContext
-): Promise<ParseExcelOutput> {
+// Input/Output interfaces
+export interface ParseExcelInput {
+  caseId: string;
+}
+
+export interface ParseIssue {
+  code: string;
+  severity: string;
+  message: string;
+}
+
+export interface ParseExcelOutput {
+  success: boolean;
+  blocked: boolean;
+  blockReason?: string;
+  containsFormulas?: boolean;
+  canonicalData?: unknown;
+  issues?: ParseIssue[];
+}
+
+/**
+ * Parses an Excel file and extracts structured data
+ * @param input - The input containing caseId
+ * @returns Parse result with canonical data or blocking information
+ */
+export async function parseExcel(input: ParseExcelInput): Promise<ParseExcelOutput> {
   const { caseId } = input;
 
-  context.log(`[${caseId}] Parsing Excel file`);
+  log.info(`[${caseId}] Parsing Excel file`);
 
   try {
     // TODO: Call parser service
@@ -35,13 +56,11 @@ export async function parseExcelActivity(
       issues: [],
     };
 
-    context.log(`[${caseId}] Excel parsed successfully. Issues: ${parseResult.issues?.length || 0}`);
+    log.info(`[${caseId}] Excel parsed successfully. Issues: ${parseResult.issues?.length || 0}`);
 
     return parseResult;
   } catch (error) {
-    context.error(`[${caseId}] Failed to parse Excel:`, error);
+    log.error(`[${caseId}] Failed to parse Excel: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default parseExcelActivity;

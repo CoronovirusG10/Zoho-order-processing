@@ -1,20 +1,42 @@
 /**
- * Resolve Items Activity
+ * Resolve Items Activity (Temporal)
  *
  * Resolves line items from the spreadsheet against Zoho Books items catalog.
  * Primary: SKU match, Fallback: GTIN (custom field), Tertiary: fuzzy name match.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { ResolveItemsInput, ResolveItemsOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function resolveItemsActivity(
-  input: ResolveItemsInput,
-  context: InvocationContext
-): Promise<ResolveItemsOutput> {
+// Input/Output interfaces
+export interface ResolveItemsInput {
+  caseId: string;
+}
+
+export interface ItemCandidate {
+  zohoItemId: string;
+  sku?: string;
+  name: string;
+  gtin?: string;
+  score: number;
+}
+
+export interface ResolveItemsOutput {
+  success: boolean;
+  allResolved: boolean;
+  needsHuman: boolean;
+  unresolvedLines?: number[];
+  candidates?: Record<number, ItemCandidate[]>;
+}
+
+/**
+ * Resolves line items against Zoho Books catalog
+ * @param input - The input containing caseId
+ * @returns Resolution result with item IDs or candidates for selection
+ */
+export async function resolveItems(input: ResolveItemsInput): Promise<ResolveItemsOutput> {
   const { caseId } = input;
 
-  context.log(`[${caseId}] Resolving line items against Zoho catalog`);
+  log.info(`[${caseId}] Resolving line items against Zoho catalog`);
 
   try {
     // TODO: Call Zoho service
@@ -33,13 +55,11 @@ export async function resolveItemsActivity(
       candidates: {},
     };
 
-    context.log(`[${caseId}] Items resolved. All resolved: ${resolutionResult.allResolved}`);
+    log.info(`[${caseId}] Items resolved. All resolved: ${resolutionResult.allResolved}`);
 
     return resolutionResult;
   } catch (error) {
-    context.error(`[${caseId}] Failed to resolve items:`, error);
+    log.error(`[${caseId}] Failed to resolve items: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default resolveItemsActivity;

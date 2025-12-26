@@ -4,6 +4,7 @@
 
 An intelligent order intake automation system that enables salespeople to upload Excel spreadsheets via Microsoft Teams, automatically processes and validates the data using a multi-model AI committee, and creates Draft Sales Orders in Zoho Books.
 
+**Deployment Target:** Azure VM (`pippai-vm` in `pippai-rg`)
 **Last updated:** 2025-12-26
 
 ---
@@ -13,6 +14,7 @@ An intelligent order intake automation system that enables salespeople to upload
 - [Overview](#overview)
 - [Architecture](#architecture)
 - [Key Features](#key-features)
+- [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
 - [Services](#services)
 - [Data Model](#data-model)
@@ -72,25 +74,35 @@ This system automates order processing with:
           │
           ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                        Azure Services (Sweden Central)                   │
+│              Azure VM: pippai-vm (pippai-rg, Sweden Central)             │
 │                                                                          │
 │  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                    Workflow Orchestrator                            │ │
-│  │                  (Azure Durable Functions)                          │ │
+│  │                      Temporal.io Server                            │ │
+│  │              (Workflow Orchestration Engine)                       │ │
 │  └────────────────────────────────────────────────────────────────────┘ │
 │         │              │              │              │                   │
 │         ▼              ▼              ▼              ▼                   │
 │  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐             │
 │  │  Parser  │   │Committee │   │   Zoho   │   │   API    │             │
-│  │ (ExcelJS)│   │(3-Model  │   │ (Books   │   │ (Cases)  │             │
+│  │ (ExcelJS)│   │(3-Model  │   │ (Books   │   │(Express) │             │
 │  │          │   │ Voting)  │   │  OAuth)  │   │          │             │
 │  └──────────┘   └──────────┘   └──────────┘   └──────────┘             │
 │                                      │                                   │
-│  ┌──────────────┐  ┌──────────────┐ │ ┌──────────────┐                  │
-│  │ Blob Storage │  │  Cosmos DB   │ │ │  Key Vault   │                  │
-│  │ (5yr audit)  │  │ (cases/logs) │ │ │  (secrets)   │                  │
-│  └──────────────┘  └──────────────┘ │ └──────────────┘                  │
+│  ┌──────────────┐  ┌──────────────┐ │                                   │
+│  │   PM2        │  │  PostgreSQL  │ │                                   │
+│  │ (Process Mgr)│  │ (Temporal DB)│ │                                   │
+│  └──────────────┘  └──────────────┘ │                                   │
 └─────────────────────────────────────│───────────────────────────────────┘
+          │                           │
+          ▼                           ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       Azure Services (Sweden Central)                    │
+│                                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
+│  │ Blob Storage │  │  Cosmos DB   │  │  Key Vault   │                   │
+│  │ (5yr audit)  │  │ (cases/logs) │  │  (secrets)   │                   │
+│  └──────────────┘  └──────────────┘  └──────────────┘                   │
+└─────────────────────────────────────────────────────────────────────────┘
                                       │
                                       ▼
                              ┌──────────────────┐
@@ -143,6 +155,24 @@ This system automates order processing with:
 
 ---
 
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|------------|---------|
+| **Runtime** | Node.js 20+ | JavaScript runtime |
+| **Web Framework** | Express.js | REST API and webhook handling |
+| **Workflow Engine** | Temporal.io | Durable workflow orchestration |
+| **Database** | PostgreSQL | Temporal persistence backend |
+| **Process Manager** | PM2 | Process monitoring and restarts |
+| **Bot Framework** | Bot Framework v4 | Teams bot integration |
+| **UI Framework** | React + Vite | Teams Tab interface |
+| **Excel Parsing** | ExcelJS | Spreadsheet processing |
+| **Cloud Storage** | Azure Blob Storage | File audit retention |
+| **Document DB** | Azure Cosmos DB | Cases, events, cache |
+| **Secrets** | Azure Key Vault | Credential management |
+
+---
+
 ## Project Structure
 
 ```
@@ -152,17 +182,18 @@ order-processing/
 │   │   ├── types/               # TypeScript types & JSON schemas
 │   │   └── shared/              # Utilities (logging, errors, crypto)
 │   ├── services/                # Microservices
-│   │   ├── api/                 # REST API (Express)
+│   │   ├── api/                 # REST API (Express.js)
 │   │   ├── teams-bot/           # Teams Bot (Bot Framework v4)
 │   │   ├── teams-tab/           # Teams Tab UI (React + Vite)
 │   │   ├── parser/              # Excel Parser (ExcelJS)
 │   │   ├── committee/           # AI Committee Engine
 │   │   ├── zoho/                # Zoho Books Integration
-│   │   ├── workflow/            # Orchestrator (Durable Functions)
+│   │   ├── workflow/            # Temporal.io Workflows & Activities
 │   │   ├── storage/             # Blob/Cosmos operations
 │   │   └── agent/               # Azure AI Foundry integration
-│   ├── infra/                   # Bicep IaC templates
+│   ├── infra/                   # Infrastructure configuration
 │   └── tests/                   # Test suites
+├── scripts/                      # Deployment and setup scripts
 ├── v7/                          # Design prompts & specs
 │   ├── prompts/                 # Build prompts for subagents
 │   │   └── subagents/           # 10 specialized subagent prompts
@@ -181,7 +212,7 @@ order-processing/
 
 ### REST API (`services/api/`)
 
-Central gateway for case management and webhook handling.
+Express.js gateway for case management and webhook handling.
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
@@ -256,15 +287,22 @@ Full Zoho Books API integration.
 
 ### Workflow (`services/workflow/`)
 
-Azure Durable Functions orchestrator.
+Temporal.io workflow orchestration with durable execution.
 
-**Flow:**
+**Workflow Definition:**
 ```
 StoreFile → ParseExcel → RunCommittee → ResolveCustomer →
 ResolveItems → AwaitApproval → CreateZohoDraft → NotifyUser
 ```
 
-**External Events (Human-in-Loop):**
+**Temporal Features:**
+- **Durable Execution** - Workflows survive process restarts
+- **Automatic Retries** - Configurable retry policies per activity
+- **Human-in-Loop Signals** - Wait for user input with timeouts
+- **Visibility** - Query workflow state at any time
+- **Versioning** - Safe workflow code updates
+
+**External Signals (Human-in-Loop):**
 - `FileReuploaded` - User uploads corrected file
 - `CorrectionsSubmitted` - User provides corrections
 - `SelectionsSubmitted` - User selects customer/items
@@ -324,14 +362,22 @@ CanonicalSalesOrder {
 
 ## Infrastructure
 
-### Azure Resources (Sweden Central)
+### Azure VM Deployment
+
+| Component | Details |
+|-----------|---------|
+| **VM Name** | `pippai-vm` |
+| **Resource Group** | `pippai-rg` |
+| **Region** | Sweden Central |
+| **Process Manager** | PM2 (ecosystem.config.js) |
+| **Workflow Engine** | Temporal.io Server |
+| **Database** | PostgreSQL (Temporal persistence) |
+
+### Azure Services
 
 | Resource | Purpose |
 |----------|---------|
 | **Azure Bot Service** | Teams channel integration |
-| **Static Web App** | Teams Tab UI |
-| **Azure Functions (3)** | Workflow, Parser, Zoho integration |
-| **Container Apps** | Bot runtime (prod only) |
 | **Cosmos DB** | Cases, fingerprints, events, cache |
 | **Azure Storage** | Blobs (audit), queues |
 | **Key Vault** | Secrets (RBAC-enabled) |
@@ -392,6 +438,18 @@ COSMOS_ENDPOINT=
 COSMOS_KEY=
 COSMOS_DATABASE=order-processing
 
+# Temporal.io
+TEMPORAL_ADDRESS=localhost:7233
+TEMPORAL_NAMESPACE=default
+TEMPORAL_TASK_QUEUE=order-processing
+
+# PostgreSQL (Temporal persistence)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=temporal
+POSTGRES_PASSWORD=
+POSTGRES_DB=temporal
+
 # Monitoring
 APPLICATIONINSIGHTS_CONNECTION_STRING=
 
@@ -426,10 +484,12 @@ COMMITTEE_PROVIDER_COUNT=3
 
 - Node.js >= 20.0.0
 - pnpm or npm
+- PostgreSQL 15+
+- Temporal.io CLI (for local development)
 - Azure CLI
 - Teams App Studio or Teams Toolkit
 
-### Setup
+### Local Setup
 
 ```bash
 cd app
@@ -437,10 +497,17 @@ npm install
 cp .env.example .env
 # Edit .env with your values
 
+# Start PostgreSQL (if not running)
+sudo systemctl start postgresql
+
+# Start Temporal server (development mode)
+temporal server start-dev
+
 # Run services in dev mode
-npm run dev:bot    # Teams bot
-npm run dev:api    # REST API
-npm run dev:tab    # Teams tab UI
+npm run dev:api       # Express.js API
+npm run dev:bot       # Teams bot
+npm run dev:tab       # Teams tab UI
+npm run dev:worker    # Temporal worker
 ```
 
 ### Commands
@@ -456,26 +523,72 @@ npm run lint       # ESLint
 
 ## Deployment
 
-### First-Time Deployment (35-55 minutes)
+### VM Deployment (pippai-vm)
 
 ```bash
-# Login to Azure
-az login
+# SSH to VM
+ssh azureuser@pippai-vm.swedencentral.cloudapp.azure.com
 
-# Deploy infrastructure
-az deployment sub create \
-  --location swedencentral \
-  --template-file app/infra/main.bicep \
-  --parameters @app/infra/main.parameters.dev.json
+# Navigate to application directory
+cd /opt/order-processing
 
-# Setup secrets
-./scripts/setup-secrets.sh
+# Pull latest code
+git pull origin main
 
-# Deploy application code
-./scripts/deploy.sh
+# Install dependencies
+npm install
 
-# Validate deployment
-./scripts/validate.sh
+# Build application
+npm run build
+
+# Restart services with PM2
+pm2 restart ecosystem.config.js
+
+# View logs
+pm2 logs
+```
+
+### PM2 Ecosystem Configuration
+
+```javascript
+// ecosystem.config.js
+module.exports = {
+  apps: [
+    {
+      name: 'api',
+      script: 'dist/services/api/index.js',
+      instances: 1,
+      env: { NODE_ENV: 'production' }
+    },
+    {
+      name: 'teams-bot',
+      script: 'dist/services/teams-bot/index.js',
+      instances: 1,
+      env: { NODE_ENV: 'production' }
+    },
+    {
+      name: 'temporal-worker',
+      script: 'dist/services/workflow/worker.js',
+      instances: 2,
+      env: { NODE_ENV: 'production' }
+    }
+  ]
+};
+```
+
+### Temporal Server Setup
+
+```bash
+# Install Temporal server
+curl -sSL https://temporal.download/cli.sh | sh
+
+# Start Temporal with PostgreSQL backend
+temporal server start \
+  --db-filename /var/lib/temporal/default.db \
+  --namespace default
+
+# Or use docker-compose for production
+docker-compose -f temporal-docker-compose.yml up -d
 ```
 
 ### Cross-Tenant Setup
@@ -550,6 +663,7 @@ See [CROSS_TENANT_TEAMS_DEPLOYMENT.md](CROSS_TENANT_TEAMS_DEPLOYMENT.md) for det
 
 ### External References
 
+- [Temporal.io Documentation](https://docs.temporal.io/)
 - [Teams File Upload Bot Sample](https://learn.microsoft.com/en-us/samples/officedev/microsoft-teams-samples/)
 - [Azure AI Foundry Samples](https://github.com/Azure-Samples/azureai-samples)
 - [Teams App Publishing Guide](https://learn.microsoft.com/en-us/microsoftteams/platform/concepts/deploy-and-publish/apps-publish-overview)
@@ -559,7 +673,7 @@ See [CROSS_TENANT_TEAMS_DEPLOYMENT.md](CROSS_TENANT_TEAMS_DEPLOYMENT.md) for det
 
 ## Constraints
 
-- **Hosting:** Azure Sweden Central (external LLM calls allowed for committee)
+- **Hosting:** Azure VM (pippai-vm) in Sweden Central
 - **Quantity = 0:** Valid and must not warn
 - **Formulas:** Blocked; user must upload values-only export
 - **Pricing:** Zoho pricing prevails; spreadsheet prices are informational

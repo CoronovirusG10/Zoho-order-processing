@@ -1,20 +1,32 @@
 /**
- * Update Case Activity
+ * Update Case Activity (Temporal)
  *
  * Updates the case record in Cosmos DB with current status and metadata.
  * Maintains audit trail of all state changes.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { UpdateCaseInput, UpdateCaseOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function updateCaseActivity(
-  input: UpdateCaseInput,
-  context: InvocationContext
-): Promise<UpdateCaseOutput> {
+// Input/Output interfaces
+export interface UpdateCaseInput {
+  caseId: string;
+  status: string;
+  updates?: Record<string, unknown>;
+}
+
+export interface UpdateCaseOutput {
+  success: boolean;
+}
+
+/**
+ * Updates a case record in Cosmos DB
+ * @param input - The input containing caseId, status, and optional updates
+ * @returns Success status
+ */
+export async function updateCase(input: UpdateCaseInput): Promise<UpdateCaseOutput> {
   const { caseId, status, updates } = input;
 
-  context.log(`[${caseId}] Updating case status to: ${status}`);
+  log.info(`[${caseId}] Updating case status to: ${status}`);
 
   try {
     // TODO: Update Cosmos DB case record
@@ -23,15 +35,13 @@ export async function updateCaseActivity(
     // - Append to audit trail
     // - Update lastModifiedAt timestamp
 
-    context.log(`[${caseId}] Case updated successfully`);
+    log.info(`[${caseId}] Case updated successfully`);
 
     return {
       success: true,
     };
   } catch (error) {
-    context.error(`[${caseId}] Failed to update case:`, error);
+    log.error(`[${caseId}] Failed to update case: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default updateCaseActivity;

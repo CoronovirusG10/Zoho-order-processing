@@ -1,20 +1,38 @@
 /**
- * Run Committee Activity
+ * Run Committee Activity (Temporal)
  *
  * Runs the 3-model committee for bounded mapping cross-check.
  * Detects disagreements that require human intervention.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { RunCommitteeInput, RunCommitteeOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function runCommitteeActivity(
-  input: RunCommitteeInput,
-  context: InvocationContext
-): Promise<RunCommitteeOutput> {
+// Input/Output interfaces
+export interface RunCommitteeInput {
+  caseId: string;
+}
+
+export interface CommitteeDisagreement {
+  field: string;
+  votes: Record<string, string>;
+}
+
+export interface RunCommitteeOutput {
+  success: boolean;
+  needsHuman: boolean;
+  consensus: 'unanimous' | 'majority' | 'split' | 'no_consensus';
+  disagreements?: CommitteeDisagreement[];
+}
+
+/**
+ * Runs the committee mapping validation for a case
+ * @param input - The input containing caseId
+ * @returns Committee consensus result and any disagreements
+ */
+export async function runCommittee(input: RunCommitteeInput): Promise<RunCommitteeOutput> {
   const { caseId } = input;
 
-  context.log(`[${caseId}] Running committee mapping validation`);
+  log.info(`[${caseId}] Running committee mapping validation`);
 
   try {
     // TODO: Call committee service
@@ -32,13 +50,11 @@ export async function runCommitteeActivity(
       disagreements: [],
     };
 
-    context.log(`[${caseId}] Committee validation complete. Consensus: ${committeeResult.consensus}`);
+    log.info(`[${caseId}] Committee validation complete. Consensus: ${committeeResult.consensus}`);
 
     return committeeResult;
   } catch (error) {
-    context.error(`[${caseId}] Failed to run committee:`, error);
+    log.error(`[${caseId}] Failed to run committee: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default runCommitteeActivity;

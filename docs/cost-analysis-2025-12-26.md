@@ -601,6 +601,191 @@ The AI committee is a significant cost driver. Here's a breakdown:
 
 ---
 
+## VM-Only Migration Cost Analysis (Temporal Architecture)
+
+### Executive Summary
+
+The **VM-Only architecture with Temporal on existing pippai-vm** costs **~$55/month incremental** compared to **$115/month** for new Azure Functions with Durable Functions. Since we're using the existing VM with PostgreSQL in Docker, **this is actually the lowest-cost option**.
+
+| Deployment Model | Monthly Cost | Annual Cost | 3-Year Cost |
+|-----------------|--------------|-------------|-------------|
+| **VM-Only (Temporal) - Existing VM** | ~$55* | ~$660 | ~$1,980 |
+| **Functions (Durable Functions) - New** | $115 | $1,380 | $4,140 |
+| **Savings** | **-$60/mo** | **-$720/yr** | **-$2,160** |
+
+*\*Incremental cost only - VM compute is already paid for*
+
+---
+
+### Monthly Cost Breakdown Comparison (Corrected)
+
+| Component | VM-Only (Temporal) | Functions (Durable) | Difference |
+|-----------|-------------------|---------------------|------------|
+| **Compute** | $0* | $70 | **-$70** |
+| PostgreSQL (Docker on VM) | $0* | $0 | $0 |
+| Cosmos DB | $25 | $25 | $0 |
+| Storage | $10 | $10 | $0 |
+| Networking | $20 | $10 | +$10 |
+| **Total** | **~$55** | **$115** | **-$60** |
+
+*\*pippai-vm already exists and is paid for; PostgreSQL runs in Docker on the VM*
+
+#### Compute Details (Corrected)
+
+| VM-Only (Temporal) | Monthly |
+|-------------------|---------|
+| pippai-vm (existing E8s_v5) | $0* |
+| Already provisioned and running | |
+| Temporal worker, API, bot added to existing VM | |
+| *Cost is sunk - VM runs regardless* | |
+
+| Functions + Container Apps (New) | Monthly |
+|----------------------------------|---------|
+| Functions Consumption (within free tier) | $0 |
+| Container Apps (bot always-on) | $70 |
+| Auto-scaling for burst workloads | |
+
+#### Database Details (Corrected)
+
+| VM-Only (Temporal) | Monthly |
+|-------------------|---------|
+| PostgreSQL 15 in Docker on pippai-vm | $0* |
+| Persistent volume at /opt/temporal/postgres-data | |
+| Uses existing VM disk space (~5GB) | |
+| *No additional Azure service required* | |
+
+| Functions (Durable Functions) | Monthly |
+|------------------------------|---------|
+| Durable Functions state storage | $0 |
+| Uses Azure Storage (included in Functions) | |
+| Built-in retry, timeout, and orchestration | |
+
+---
+
+### Annual Impact Analysis (Corrected)
+
+| Time Period | VM-Only (Existing) | Functions (New) | Savings with VM-Only |
+|-------------|-------------------|-----------------|---------------------|
+| 1 Year | ~$660 | $1,380 | **-$720** |
+| 2 Years | ~$1,320 | $2,760 | **-$1,440** |
+| 3 Years | ~$1,980 | $4,140 | **-$2,160** |
+
+**Cumulative 3-Year Savings: $2,160** by using existing VM with Temporal.
+
+---
+
+### When VM-Only (Temporal) Makes Sense
+
+| Scenario | Why VM-Only Works |
+|----------|-------------------|
+| **High sustained workloads** | >10,000 orders/day where Functions cold starts become problematic |
+| **Strict latency requirements** | <100ms response time SLAs that can't tolerate cold starts |
+| **Temporal expertise** | Team has existing Temporal knowledge and can leverage advanced features |
+| **Complex workflow state** | Multi-day workflows with complex compensation logic |
+| **Multi-language workers** | Need Python, Go, or Java workers alongside Node.js |
+| **Long-running operations** | Workflows exceeding Functions' 10-minute timeout |
+| **Advanced visibility** | Need Temporal's built-in workflow history and debugging UI |
+
+---
+
+### Trade-offs Analysis
+
+| Factor | VM-Only (Temporal) | Functions (Durable) |
+|--------|-------------------|---------------------|
+| **Operational Complexity** | High - manage VM, PostgreSQL, Temporal server | Low - fully managed |
+| **Flexibility** | High - full control over infrastructure | Medium - platform constraints |
+| **Scaling** | Manual or custom auto-scaling | Automatic, built-in |
+| **Cold Starts** | None (always running) | 1-3 seconds typical |
+| **Debugging** | Temporal Web UI, full control | Azure Portal, Application Insights |
+| **Vendor Lock-in** | Low - Temporal is portable | Medium - Durable Functions specific |
+| **Team Skills Required** | Temporal, PostgreSQL, Linux admin | Azure Functions, TypeScript |
+| **Disaster Recovery** | Custom PostgreSQL backup strategy | Built-in Azure replication |
+| **Monitoring** | Custom Prometheus/Grafana setup | Native Azure Monitor integration |
+| **Maintenance Window** | Required for PostgreSQL updates | None (managed service) |
+
+---
+
+### Business Justification (Using Existing VM)
+
+Since we're using the **existing pippai-vm**, VM-Only with Temporal is actually **the most cost-effective option**:
+
+1. **No New Compute Costs**
+   - pippai-vm (E8s_v5) is already provisioned and running
+   - Adding Order Processing workload uses spare capacity
+   - **Verdict:** ✅ Cost justified - incremental cost is ~$0
+
+2. **No Managed Database Costs**
+   - PostgreSQL runs in Docker on the VM
+   - Uses ~5GB of existing disk space
+   - No Azure Database for PostgreSQL required ($260/month saved)
+   - **Verdict:** ✅ Cost justified
+
+3. **Performance Benefits**
+   - Zero cold starts (always-on)
+   - Consistent sub-100ms response times
+   - **Verdict:** ✅ Better than Functions
+
+4. **Operational Considerations**
+   - PostgreSQL backup needs to be configured (pg_dump cron)
+   - VM maintenance is already part of existing operations
+   - Temporal Web UI available for debugging
+   - **Verdict:** ✅ Acceptable overhead
+
+#### Cost Justification Summary (Corrected)
+
+| Justification Factor | Weight | Score (1-5) | Notes |
+|---------------------|--------|-------------|-------|
+| Cost efficiency | 30% | 5 | Lowest cost option using existing VM |
+| Performance | 25% | 5 | No cold starts, consistent latency |
+| Operational fit | 20% | 4 | Fits existing VM operations |
+| Temporal features | 15% | 4 | Advanced visibility, signals, queries |
+| Vendor independence | 10% | 5 | Temporal is portable |
+| **Weighted Score** | 100% | **4.7/5** | **Recommended** |
+
+**Recommendation:** Using the existing pippai-vm with Temporal is **strongly recommended** because:
+- **Saves $60/month** compared to new Azure Functions deployment
+- **Saves $720/year** / **$2,160 over 3 years**
+- Leverages existing infrastructure investment
+- Provides better performance (no cold starts)
+- Offers advanced workflow debugging via Temporal Web UI
+
+---
+
+### Cost Tracking Tag Strategy
+
+Apply consistent Azure tags for accurate cost allocation and tracking:
+
+| Tag Key | Tag Value | Purpose |
+|---------|-----------|---------|
+| `Project` | `order-processing` | Identify project resources |
+| `CostCenter` | `zoho` | Billing allocation |
+| `Environment` | `production` / `staging` | Separate env costs |
+| `Component` | `compute` / `database` / `storage` | Resource categorization |
+| `ManagedBy` | `terraform` / `manual` | Infrastructure tracking |
+| `Owner` | `platform-team` | Accountability |
+
+#### Tagging Implementation
+
+```bash
+# Apply tags to all resources in resource group
+az tag create --resource-id /subscriptions/{sub}/resourceGroups/zoho-rg \
+  --tags Project=order-processing CostCenter=zoho Environment=production
+
+# Query costs by tags
+az cost management query \
+  --timeframe MonthToDate \
+  --dataset-filter "tags/Project eq 'order-processing'"
+```
+
+#### Azure Cost Management Setup
+
+1. Create budget alert at $500/month (VM-Only threshold)
+2. Create budget alert at $150/month (Functions threshold)
+3. Enable cost anomaly detection
+4. Schedule weekly cost reports to stakeholders
+
+---
+
 ## Sources
 
 - [Azure Functions Pricing](https://azure.microsoft.com/en-us/pricing/details/functions/)

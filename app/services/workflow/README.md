@@ -1,54 +1,60 @@
 # Workflow Orchestrator Service
 
-Azure Durable Functions-based workflow orchestrator for order processing. Implements the complete order processing workflow from Excel file upload to Zoho Books draft sales order creation.
+Temporal.io-based workflow orchestrator for order processing. Implements the complete order processing workflow from Excel file upload to Zoho Books draft sales order creation, running as an Express.js server with a Temporal worker.
 
 ## Architecture
 
-This service uses **Azure Durable Functions** for reliable, stateful workflow orchestration:
+This service uses **Temporal.io** for reliable, stateful workflow orchestration:
 
-- **Replayable orchestrations** - Fault-tolerant execution with automatic retries
-- **Activity functions** - Individual steps with retry policies
-- **External events** - User interactions trigger workflow progression
-- **Durable entities** - Maintain case state across orchestrations
-- **State persistence** - Automatic state management via Azure Storage
+- **Durable workflows** - Fault-tolerant execution with automatic retries and replay
+- **Activity functions** - Individual steps with configurable retry policies
+- **Signals** - User interactions trigger workflow progression
+- **Queries** - Real-time workflow state inspection
+- **State persistence** - Automatic state management via Temporal server
+
+### Service Components
+
+- **Express.js API Server** - HTTP endpoints for workflow management (port 3000)
+- **Temporal Worker** - Executes workflows and activities
+- **Temporal Server** - Workflow orchestration engine (gRPC port 7233)
 
 ## Workflow Steps
 
 ```
-1. FileReceived → StoreFile
-   ↓
-2. ParseExcel → [success/blocked/failed]
-   ↓ (if blocked: formulas/protected)
-   → NotifyUser (re-upload required)
-   → Wait for FileReuploaded event
-   → Restart workflow
-   ↓ (if success)
-3. RunCommittee → [consensus/needs_human]
-   ↓ (if needs_human: disagreements)
-   → NotifyUser (correction required)
-   → Wait for CorrectionsSubmitted event
-   → ApplyCorrections
-   ↓
-4. ResolveCustomer → [resolved/needs_human]
-   ↓ (if needs_human: ambiguous)
-   → NotifyUser (selection required)
-   → Wait for SelectionsSubmitted event
-   → ApplySelections
-   ↓
-5. ResolveItems → [all_resolved/needs_human]
-   ↓ (if needs_human: unresolved items)
-   → NotifyUser (selection required)
-   → Wait for SelectionsSubmitted event
-   → ApplySelections
-   ↓
+1. FileReceived -> StoreFile
+   |
+2. ParseExcel -> [success/blocked/failed]
+   | (if blocked: formulas/protected)
+   -> NotifyUser (re-upload required)
+   -> Wait for FileReuploaded signal
+   -> Restart workflow
+   | (if success)
+3. RunCommittee -> [consensus/needs_human]
+   | (if needs_human: disagreements)
+   -> NotifyUser (correction required)
+   -> Wait for CorrectionsSubmitted signal
+   -> ApplyCorrections
+   |
+4. ResolveCustomer -> [resolved/needs_human]
+   | (if needs_human: ambiguous)
+   -> NotifyUser (selection required)
+   -> Wait for SelectionsSubmitted signal
+   -> ApplySelections
+   |
+5. ResolveItems -> [all_resolved/needs_human]
+   | (if needs_human: unresolved items)
+   -> NotifyUser (selection required)
+   -> Wait for SelectionsSubmitted signal
+   -> ApplySelections
+   |
 6. AwaitApproval
-   → NotifyUser (ready for approval)
-   → Wait for ApprovalReceived event
-   ↓ (if approved)
-7. CreateZohoDraft → [success/queued/failed]
-   ↓ (if success)
+   -> NotifyUser (ready for approval)
+   -> Wait for ApprovalReceived signal
+   | (if approved)
+7. CreateZohoDraft -> [success/queued/failed]
+   | (if success)
 8. NotifyComplete
-   → UpdateCase (status: completed)
+   -> UpdateCase (status: completed)
 ```
 
 ## Directory Structure
@@ -57,13 +63,16 @@ This service uses **Azure Durable Functions** for reliable, stateful workflow or
 services/workflow/
 ├── package.json
 ├── tsconfig.json
-├── host.json                        # Durable Functions configuration
-├── local.settings.json.example      # Environment configuration template
+├── ecosystem.config.js              # PM2 process configuration
+├── docker-compose.temporal.yml      # Temporal server setup
+├── .env.example                     # Environment configuration template
 ├── src/
-│   ├── index.ts                     # Main entry point
+│   ├── index.ts                     # Express server entry point
+│   ├── worker.ts                    # Temporal worker entry point
 │   ├── types.ts                     # TypeScript type definitions
-│   ├── orchestrations/
-│   │   └── order-processing.ts      # Main orchestration
+│   ├── client.ts                    # Temporal client utilities
+│   ├── workflows/
+│   │   └── order-processing.ts      # Main workflow definition
 │   ├── activities/
 │   │   ├── store-file.ts            # Store uploaded file
 │   │   ├── parse-excel.ts           # Parse Excel file
@@ -75,16 +84,32 @@ services/workflow/
 │   │   ├── update-case.ts           # Update Cosmos DB case
 │   │   ├── apply-corrections.ts     # Apply user corrections
 │   │   └── apply-selections.ts      # Apply user selections
-│   ├── triggers/
-│   │   ├── http-trigger.ts          # Start workflow (POST /api/workflow/start)
-│   │   ├── queue-trigger.ts         # Handle external events from queue
-│   │   ├── http-event-trigger.ts    # Raise events via HTTP
-│   │   └── http-status-trigger.ts   # Get/terminate workflow status
-│   ├── entities/
-│   │   └── case-entity.ts           # Durable entity for case state
+│   ├── routes/
+│   │   ├── workflow.ts              # Workflow API routes
+│   │   └── health.ts                # Health check endpoints
 │   └── utils/
-│       └── durable-client.ts        # Durable Functions utilities
+│       └── temporal-client.ts       # Temporal client utilities
 ```
+
+## Dependencies
+
+```json
+{
+  "@temporalio/client": "^1.x",
+  "@temporalio/worker": "^1.x",
+  "@temporalio/workflow": "^1.x",
+  "@temporalio/activity": "^1.x",
+  "express": "^4.x"
+}
+```
+
+## Ports
+
+| Service | Port | Protocol | Description |
+|---------|------|----------|-------------|
+| Express API | 3000 | HTTP | Workflow management endpoints |
+| Temporal Server | 7233 | gRPC | Temporal workflow engine |
+| Temporal Web UI | 8080 | HTTP | Workflow monitoring dashboard |
 
 ## API Endpoints
 
@@ -108,50 +133,49 @@ Content-Type: application/json
 
 Response: 202 Accepted
 {
-  "instanceId": "uuid",
+  "workflowId": "uuid",
+  "runId": "uuid",
   "caseId": "uuid",
-  "status": "started",
-  "statusQueryGetUri": "...",
-  "sendEventPostUri": "...",
-  "terminatePostUri": "..."
+  "status": "started"
 }
 ```
 
-### Raise External Event
+### Send Signal (External Event)
 ```http
-POST /api/workflow/{instanceId}/raiseEvent/{eventName}
+POST /api/workflow/{workflowId}/signal/{signalName}
 Content-Type: application/json
 
 {
-  // Event-specific data
+  // Signal-specific data
 }
 
 Response: 202 Accepted
 {
-  "instanceId": "uuid",
-  "eventName": "CorrectionsSubmitted",
-  "status": "event_raised"
+  "workflowId": "uuid",
+  "signalName": "CorrectionsSubmitted",
+  "status": "signal_sent"
 }
 ```
 
-### Get Workflow Status
+### Query Workflow Status
 ```http
-GET /api/workflow/{instanceId}/status
+GET /api/workflow/{workflowId}/status
 
 Response: 200 OK
 {
-  "instanceId": "uuid",
-  "runtimeStatus": "Running|Completed|Failed",
+  "workflowId": "uuid",
+  "runId": "uuid",
+  "status": "RUNNING|COMPLETED|FAILED|CANCELLED",
   "input": { ... },
-  "output": { ... },
-  "createdTime": "2025-12-25T10:00:00Z",
-  "lastUpdatedTime": "2025-12-25T10:05:00Z"
+  "currentStep": "...",
+  "startTime": "2025-12-25T10:00:00Z",
+  "closeTime": null
 }
 ```
 
-### Terminate Workflow
+### Cancel Workflow
 ```http
-POST /api/workflow/{instanceId}/terminate
+POST /api/workflow/{workflowId}/cancel
 Content-Type: application/json
 
 {
@@ -160,18 +184,30 @@ Content-Type: application/json
 
 Response: 200 OK
 {
-  "instanceId": "uuid",
-  "status": "terminated",
+  "workflowId": "uuid",
+  "status": "cancelled",
   "reason": "User cancelled"
 }
 ```
 
-## External Events
+### Health Check
+```http
+GET /health
 
-The workflow waits for these external events from the Teams bot:
+Response: 200 OK
+{
+  "status": "healthy",
+  "temporal": "connected",
+  "uptime": 12345
+}
+```
+
+## Signals (External Events)
+
+The workflow waits for these signals from the Teams bot:
 
 ### FileReuploaded
-Raised when user re-uploads a file after blocking issue.
+Sent when user re-uploads a file after blocking issue.
 ```typescript
 {
   caseId: string;
@@ -181,7 +217,7 @@ Raised when user re-uploads a file after blocking issue.
 ```
 
 ### CorrectionsSubmitted
-Raised when user submits corrections via adaptive card.
+Sent when user submits corrections via adaptive card.
 ```typescript
 {
   caseId: string;
@@ -192,7 +228,7 @@ Raised when user submits corrections via adaptive card.
 ```
 
 ### SelectionsSubmitted
-Raised when user selects customer/items from candidates.
+Sent when user selects customer/items from candidates.
 ```typescript
 {
   caseId: string;
@@ -206,7 +242,7 @@ Raised when user selects customer/items from candidates.
 ```
 
 ### ApprovalReceived
-Raised when user approves/rejects the order.
+Sent when user approves/rejects the order.
 ```typescript
 {
   caseId: string;
@@ -219,71 +255,145 @@ Raised when user approves/rejects the order.
 
 ## Retry Policies
 
-The service includes built-in retry policies:
+Activity retry policies are configured in the workflow:
 
-- **Standard**: 3 attempts, 5s initial delay, exponential backoff
-- **Aggressive**: 5 attempts, 5s initial delay, 2x backoff
-- **Long-running**: 10 attempts, 10s initial delay, 1.5x backoff
+- **Standard**: 3 attempts, 5s initial interval, exponential backoff (max 1 min)
+- **Aggressive**: 5 attempts, 5s initial interval, 2x backoff coefficient
+- **Long-running**: 10 attempts, 10s initial interval, 1.5x backoff (max 5 min)
 
 Used for resilience against transient failures.
 
 ## Configuration
 
-Environment variables (see `local.settings.json.example`):
+Environment variables (see `.env.example`):
 
-```
-AzureWebJobsStorage          # Storage account for Durable Functions state
-COSMOS_ENDPOINT              # Cosmos DB endpoint
-COSMOS_KEY                   # Cosmos DB key
-COSMOS_DATABASE_ID           # Cosmos DB database name
-BLOB_STORAGE_CONNECTION_STRING  # Blob storage for files
-PARSER_SERVICE_URL           # Parser service endpoint
-COMMITTEE_SERVICE_URL        # Committee service endpoint
-ZOHO_SERVICE_URL             # Zoho service endpoint
-TEAMS_BOT_SERVICE_URL        # Teams bot service endpoint
-APPLICATIONINSIGHTS_CONNECTION_STRING  # App Insights
+```bash
+# Temporal Configuration
+TEMPORAL_ADDRESS=localhost:7233      # Temporal server gRPC address
+TEMPORAL_NAMESPACE=default           # Temporal namespace
+TEMPORAL_TASK_QUEUE=order-processing # Task queue name
+
+# Express Server
+PORT=3000                            # API server port
+
+# Database
+COSMOS_ENDPOINT=                     # Cosmos DB endpoint
+COSMOS_KEY=                          # Cosmos DB key
+COSMOS_DATABASE_ID=                  # Cosmos DB database name
+
+# Storage
+BLOB_STORAGE_CONNECTION_STRING=      # Blob storage for files
+
+# Service URLs
+PARSER_SERVICE_URL=                  # Parser service endpoint
+COMMITTEE_SERVICE_URL=               # Committee service endpoint
+ZOHO_SERVICE_URL=                    # Zoho service endpoint
+TEAMS_BOT_SERVICE_URL=               # Teams bot service endpoint
+
+# Monitoring
+APPLICATIONINSIGHTS_CONNECTION_STRING=  # App Insights (optional)
 ```
 
 ## Correlation and Audit
 
 - Every workflow step propagates `correlationId` (= `caseId`)
 - Audit events logged at each step with structured logging
-- Application Insights tracks entire workflow lifecycle
-- Durable Functions provides automatic replay protection
+- Temporal provides full workflow execution history
+- Application Insights integration for distributed tracing
 
 ## Error Handling
 
-- Transient errors: Automatic retry with exponential backoff
+- Transient errors: Automatic retry with exponential backoff (configured per activity)
 - Permanent errors: Workflow fails, user notified, case marked failed
 - Zoho outage: Queue order for later, notify user
-- Blocking issues: Notify user, wait for correction/re-upload
+- Blocking issues: Notify user, wait for signal (correction/re-upload)
 
 ## Local Development
 
-1. Install dependencies:
+### 1. Start Temporal Server
+
+Using Docker Compose:
+```bash
+docker-compose -f docker-compose.temporal.yml up -d
+```
+
+This starts:
+- Temporal server (port 7233)
+- Temporal Web UI (port 8080)
+- PostgreSQL (Temporal persistence)
+
+### 2. Install Dependencies
 ```bash
 npm install
 ```
 
-2. Build TypeScript:
+### 3. Build TypeScript
 ```bash
 npm run build
 ```
 
-3. Copy settings:
+### 4. Configure Environment
 ```bash
-cp local.settings.json.example local.settings.json
+cp .env.example .env
 # Edit with your local values
 ```
 
-4. Start Azurite (local storage emulator):
+### 5. Start Services with PM2
 ```bash
-azurite --silent --location /tmp/azurite --debug /tmp/azurite/debug.log
+# Install PM2 globally if needed
+npm install -g pm2
+
+# Start all services
+pm2 start ecosystem.config.js
+
+# View logs
+pm2 logs
+
+# Monitor
+pm2 monit
 ```
 
-5. Start Functions runtime:
+Or start individually:
 ```bash
-npm start
+# Start worker (in one terminal)
+npm run worker
+
+# Start API server (in another terminal)
+npm run server
+```
+
+## PM2 Process Management
+
+The `ecosystem.config.js` defines process configuration:
+
+```javascript
+module.exports = {
+  apps: [
+    {
+      name: 'workflow-api',
+      script: 'dist/index.js',
+      instances: 1,
+      env: {
+        PORT: 3000
+      }
+    },
+    {
+      name: 'workflow-worker',
+      script: 'dist/worker.js',
+      instances: 1
+    }
+  ]
+};
+```
+
+Common PM2 commands:
+```bash
+pm2 start ecosystem.config.js   # Start all
+pm2 stop all                    # Stop all
+pm2 restart all                 # Restart all
+pm2 delete all                  # Remove all
+pm2 logs workflow-api           # View API logs
+pm2 logs workflow-worker        # View worker logs
 ```
 
 ## Testing
@@ -296,7 +406,7 @@ npm test
 npm run test:watch
 
 # Start workflow locally
-curl -X POST http://localhost:7071/api/workflow/start \
+curl -X POST http://localhost:3000/api/workflow/start \
   -H "Content-Type: application/json" \
   -d '{
     "caseId": "test-123",
@@ -310,8 +420,8 @@ curl -X POST http://localhost:7071/api/workflow/start \
     }
   }'
 
-# Raise event
-curl -X POST http://localhost:7071/api/workflow/test-123/raiseEvent/ApprovalReceived \
+# Send signal
+curl -X POST http://localhost:3000/api/workflow/test-123/signal/ApprovalReceived \
   -H "Content-Type: application/json" \
   -d '{
     "caseId": "test-123",
@@ -321,23 +431,42 @@ curl -X POST http://localhost:7071/api/workflow/test-123/raiseEvent/ApprovalRece
   }'
 
 # Get status
-curl http://localhost:7071/api/workflow/test-123/status
+curl http://localhost:3000/api/workflow/test-123/status
+
+# Health check
+curl http://localhost:3000/health
 ```
 
 ## Deployment
 
-Deploy to Azure Functions Premium or Dedicated plan:
+### Docker Deployment
 
 ```bash
-# Using Azure CLI
-az functionapp deployment source config-zip \
-  --resource-group order-processing-rg \
-  --name workflow-func-app \
-  --src dist.zip
+# Build the service image
+docker build -t workflow-service .
 
-# Using func CLI
-func azure functionapp publish workflow-func-app
+# Run with docker-compose
+docker-compose up -d
 ```
+
+### Production Setup
+
+1. **Temporal Server**: Deploy Temporal cluster (self-hosted or Temporal Cloud)
+2. **Worker Deployment**: Deploy worker containers/VMs with PM2
+3. **API Server**: Deploy Express server behind load balancer
+
+```bash
+# Using PM2 for production
+pm2 start ecosystem.config.js --env production
+pm2 save
+pm2 startup
+```
+
+### Scaling
+
+- **Workers**: Scale horizontally by adding more worker instances
+- **API Servers**: Scale behind load balancer
+- **Temporal**: Use Temporal Cloud for managed scaling
 
 ## Integration with Other Services
 
@@ -350,10 +479,21 @@ func azure functionapp publish workflow-func-app
 
 ## Monitoring
 
-- **Application Insights**: Full telemetry, distributed tracing
-- **Durable Functions Monitor**: Web-based orchestration viewer
+- **Temporal Web UI**: Full workflow visibility at `http://localhost:8080`
+  - View running/completed/failed workflows
+  - Inspect workflow history and state
+  - Debug failed activities
+- **Application Insights**: Distributed tracing integration
 - **Custom Metrics**: Track workflow success rate, step durations, retry counts
 - **Alerts**: Failed workflows, high retry rates, Zoho unavailability
+
+### Temporal Web UI Features
+
+- Real-time workflow execution view
+- Searchable workflow history
+- Activity retry and failure inspection
+- Signal and query debugging
+- Namespace and task queue management
 
 ## License
 

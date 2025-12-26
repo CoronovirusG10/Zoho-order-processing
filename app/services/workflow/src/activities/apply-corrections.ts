@@ -1,20 +1,31 @@
 /**
- * Apply Corrections Activity
+ * Apply Corrections Activity (Temporal)
  *
  * Applies user-provided corrections to the case canonical data.
  * Corrections are provided as JSON Patch operations.
  */
 
-import { InvocationContext } from '@azure/functions';
-import { ApplyCorrectionsInput, ApplyCorrectionsOutput } from '../types';
+import { log } from '@temporalio/activity';
 
-export async function applyCorrectionsActivity(
-  input: ApplyCorrectionsInput,
-  context: InvocationContext
-): Promise<ApplyCorrectionsOutput> {
+// Input/Output interfaces
+export interface ApplyCorrectionsInput {
+  caseId: string;
+  corrections: unknown;
+}
+
+export interface ApplyCorrectionsOutput {
+  success: boolean;
+}
+
+/**
+ * Applies user corrections to case data
+ * @param input - The input containing caseId and corrections
+ * @returns Success status
+ */
+export async function applyCorrections(input: ApplyCorrectionsInput): Promise<ApplyCorrectionsOutput> {
   const { caseId, corrections } = input;
 
-  context.log(`[${caseId}] Applying user corrections`);
+  log.info(`[${caseId}] Applying user corrections`);
 
   try {
     // TODO: Apply corrections to case data
@@ -24,15 +35,13 @@ export async function applyCorrectionsActivity(
     // 4. Store updated canonical data
     // 5. Log correction event to audit trail
 
-    context.log(`[${caseId}] Corrections applied successfully`);
+    log.info(`[${caseId}] Corrections applied successfully`);
 
     return {
       success: true,
     };
   } catch (error) {
-    context.error(`[${caseId}] Failed to apply corrections:`, error);
+    log.error(`[${caseId}] Failed to apply corrections: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
-
-export default applyCorrectionsActivity;
