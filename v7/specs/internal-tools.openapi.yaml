@@ -1,0 +1,155 @@
+openapi: 3.0.3
+info:
+  title: Order Processing Internal Tools API
+  version: 0.1.0
+  description: |
+    Internal tool endpoints used by Azure AI Foundry Agent Service (OpenAPI tool calling) and by the Teams bot backend.
+    NOTE: Authentication and network controls must be configured (APIM + Entra ID) before enabling this as a tool.
+
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: example.internal.api
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    EvidenceCell:
+      type: object
+      required: [sheet, cell]
+      properties:
+        sheet: { type: string }
+        cell: { type: string }
+        raw_value: {}
+        display_value: { type: string, nullable: true }
+        number_format: { type: string, nullable: true }
+    ParseExcelRequest:
+      type: object
+      required: [case_id, blob_url]
+      properties:
+        case_id: { type: string }
+        blob_url:
+          type: string
+          description: SAS URL (read-only) to the uploaded Excel in Azure Blob Storage
+        options:
+          type: object
+          properties:
+            block_if_formulas: { type: boolean, default: true }
+            preferred_customer_hint: { type: string, nullable: true }
+    ParseExcelResponse:
+      type: object
+      required: [case_id, canonical_order]
+      properties:
+        case_id: { type: string }
+        canonical_order:
+          $ref: ./schemas/canonical-sales-order.schema.json
+    CommitteeReviewRequest:
+      type: object
+      required: [case_id, task_type, canonical_order]
+      properties:
+        case_id: { type: string }
+        task_type:
+          type: string
+          enum: [schema_mapping_review, extraction_review, zoho_payload_review]
+        canonical_order:
+          $ref: ./schemas/canonical-sales-order.schema.json
+        committee_config:
+          type: object
+          description: Optional override for committee providers/weights.
+    CommitteeReviewResponse:
+      type: object
+      required: [case_id, consensus, issues]
+      properties:
+        case_id: { type: string }
+        consensus: { type: string, enum: [unanimous, majority, split, no_consensus] }
+        issues:
+          type: array
+          items:
+            type: object
+        provider_outputs:
+          type: array
+          items:
+            type: object
+          description: Redacted/raw outputs stored separately in blob; include pointers instead when possible.
+    ZohoCreateDraftSalesOrderRequest:
+      type: object
+      required: [case_id, canonical_order]
+      properties:
+        case_id: { type: string }
+        canonical_order:
+          $ref: ./schemas/canonical-sales-order.schema.json
+        dry_run:
+          type: boolean
+          default: false
+          description: If true, validates payload build without calling Zoho.
+    ZohoCreateDraftSalesOrderResponse:
+      type: object
+      required: [case_id, ok]
+      properties:
+        case_id: { type: string }
+        ok: { type: boolean }
+        zoho_salesorder_id: { type: string, nullable: true }
+        zoho_salesorder_number: { type: string, nullable: true }
+        warnings:
+          type: array
+          items: { type: string }
+        errors:
+          type: array
+          items: { type: string }
+
+paths:
+  /tools/parse-excel:
+    post:
+      operationId: parseExcel
+      summary: Parse Excel and extract canonical order JSON with evidence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ParseExcelRequest' }
+      responses:
+        '200':
+          description: Parsed successfully (may still contain issues requiring user input).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ParseExcelResponse' }
+
+  /tools/committee-review:
+    post:
+      operationId: committeeReview
+      summary: Run multi-model committee review on a given task.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommitteeReviewRequest' }
+      responses:
+        '200':
+          description: Review completed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommitteeReviewResponse' }
+
+  /tools/zoho/create-draft-salesorder:
+    post:
+      operationId: zohoCreateDraftSalesOrder
+      summary: Create a Draft Sales Order in Zoho Books.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ZohoCreateDraftSalesOrderRequest' }
+      responses:
+        '200':
+          description: Created (or already exists).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ZohoCreateDraftSalesOrderResponse' }

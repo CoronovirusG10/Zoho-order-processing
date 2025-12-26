@@ -1,0 +1,48 @@
+# Key Vault Configuration Check
+# Generated: 2025-12-26
+# Audit Type: READ-ONLY Security Assessment
+
+## Key Vault Bicep Module Analysis
+File: /data/order-processing/app/infra/modules/keyvault.bicep
+
+### Configuration Findings:
+- [PASS] enableRbacAuthorization: true (RBAC preferred over access policies)
+- [PASS] enableSoftDelete: true
+- [PASS] softDeleteRetentionInDays: 90
+- [PASS] enablePurgeProtection: Conditional (true for 'prod' environment)
+- [PASS] publicNetworkAccess: Configurable (disabled when private endpoint enabled)
+- [PASS] networkAcls.bypass: 'AzureServices'
+- [PASS] Diagnostic settings configured with Log Analytics integration
+
+### Secret Name References (Not Hardcoded Values):
+The following secrets are referenced BY NAME in code:
+- zoho-client-id
+- zoho-client-secret
+- zoho-refresh-token
+- zoho-organization-id
+- zoho-region
+
+### Secret Access Pattern:
+File: /data/order-processing/app/services/zoho/src/auth/oauth-manager.ts
+
+Implementation uses Azure Key Vault SecretClient with DefaultAzureCredential:
+```typescript
+import { SecretClient } from '@azure/keyvault-secrets';
+import { DefaultAzureCredential } from '@azure/identity';
+...
+const credential = new DefaultAzureCredential();
+this.secretClient = new SecretClient(config.keyVaultUrl, credential);
+...
+this.secretClient.getSecret(this.config.clientIdSecretName)
+```
+
+### Credential Priority (oauth-manager.ts):
+1. Dev credentials (config-provided, for local dev only)
+2. Environment variables (for local dev without Key Vault)
+3. Azure Key Vault (production - via Managed Identity)
+
+## Verdict: PASS
+- Secrets are referenced by name, not hardcoded
+- RBAC authorization is enabled (best practice)
+- Managed Identity pattern is used via DefaultAzureCredential
+- Soft delete and purge protection configured appropriately

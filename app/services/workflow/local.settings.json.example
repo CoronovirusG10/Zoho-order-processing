@@ -1,0 +1,19 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "AzureWebJobsFeatureFlags": "EnableWorkerIndexing",
+    "COSMOS_ENDPOINT": "https://your-cosmos-account.documents.azure.com:443/",
+    "COSMOS_KEY": "your-cosmos-key",
+    "COSMOS_DATABASE_ID": "order-processing",
+    "BLOB_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=youraccount;AccountKey=yourkey",
+    "PARSER_SERVICE_URL": "http://localhost:7071/api",
+    "COMMITTEE_SERVICE_URL": "http://localhost:7072/api",
+    "ZOHO_SERVICE_URL": "http://localhost:7073/api",
+    "TEAMS_BOT_SERVICE_URL": "http://localhost:3978/api",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING": "InstrumentationKey=00000000-0000-0000-0000-000000000000",
+    "LOG_LEVEL": "debug"
+  },
+  "ConnectionStrings": {}
+}

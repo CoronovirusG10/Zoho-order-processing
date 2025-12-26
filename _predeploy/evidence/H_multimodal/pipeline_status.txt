@@ -1,0 +1,118 @@
+# Multimodal Pipeline Status
+
+## Overall Status: PASS (for MVP scope)
+
+## Modality Support
+
+### 1. Excel (.xlsx) - IMPLEMENTED
+- Full implementation using ExcelJS
+- Deterministic parsing pipeline
+- Provenance tracking (sheet, cell, raw_value)
+- Error handling for formulas, missing headers, malformed files
+- Multi-language support (English/Farsi)
+- See parser_check.txt for details
+
+### 2. Image/PDF OCR - NOT IMPLEMENTED (Out of MVP Scope)
+- No OCR implementation found
+- No DocumentIntelligence, tesseract, or vision API usage
+- Per MVP_AND_HOWTO.md: "Non-Excel formats" is explicitly out of scope
+- ACCEPTABLE FOR MVP: Design documents state ".xlsx files (one file = one order)"
+
+### 3. Voice/STT - NOT IMPLEMENTED (Out of MVP Scope)
+- No speech-to-text implementation found
+- No Whisper, transcribe, or gpt-4o-transcribe usage
+- Not mentioned in MVP scope
+- ACCEPTABLE FOR MVP: Voice input not required for v1
+
+## Evidence Pack Interface - IMPLEMENTED
+
+### Location
+- Types: /data/order-processing/app/services/committee/src/types.ts
+- Builder: /data/order-processing/app/services/committee/src/utils/evidence-pack-builder.ts
+
+### EvidencePack Schema
+```typescript
+interface EvidencePack {
+  caseId: string;
+  candidateHeaders: string[];
+  sampleValues: Record<string, string[]>; // Max 5 samples per column
+  columnStats: ColumnStats[];
+  detectedLanguage: 'en' | 'fa' | 'ar' | 'mixed' | 'unknown';
+  constraints: string[];
+  timestamp: string;
+  metadata?: {
+    sourceFileName?: string;
+    totalRows?: number;
+    totalColumns?: number;
+    hasFormulas?: boolean;
+  };
+}
+```
+
+### Features
+- Bounded data (max 5 samples, max 100/200 char truncation)
+- Column statistics: nonEmptyCount, uniqueCount, dataTypes, patterns
+- Pattern detection: GTIN, SKU, Currency, Email, Phone
+- Language detection with Farsi character support
+- Default constraints enforcing bounded selection
+
+## Committee Integration - IMPLEMENTED
+
+### Evidence Pack Usage
+- Committee receives EvidencePack via CommitteeTask interface
+- Providers execute mapping using task.evidencePack
+- System prompt instructs models to reference evidence
+
+### Provider Output with Evidence References
+```typescript
+interface ProviderMapping {
+  field: string;
+  selectedColumnId: string | null;
+  confidence: number;
+  reasoning: string; // References evidence
+}
+
+interface ProviderIssue {
+  code: string;
+  severity: 'info' | 'warning' | 'error';
+  evidence: string; // Reference to specific evidence
+}
+```
+
+### Aggregation with Provenance
+- FieldVote tracks which providers voted for which column
+- Disagreements record all provider outputs for audit
+- Final CommitteeResult includes full audit trail
+
+## Provenance Tracking - IMPLEMENTED
+
+### Parser Level
+- Every extracted value includes EvidenceCell (sheet, cell, raw_value)
+- Line items maintain evidence for all fields
+- Customer and totals sections include evidence arrays
+
+### Canonical Schema Level
+- Full evidenceCell definition in JSON schema
+- Evidence required for all extracted values
+- Schema inference tracks column_mappings with source_header and source_column
+
+### Committee Level
+- Evidence pack built from parser output
+- Models receive sample values with column IDs
+- Outputs reference specific evidence via columnId
+- Audit trail stored with blobUri pointers
+
+## Stubs Acceptable for MVP
+
+1. OCR/PDF - Not implemented, out of MVP scope
+2. Voice/STT - Not implemented, out of MVP scope
+3. Multi-order spreadsheets - Blocked by design, out of MVP scope
+4. Workbooks requiring formula evaluation - Blocked by design
+
+## Files Reviewed
+- /data/order-processing/SOLUTION_DESIGN.md
+- /data/order-processing/MVP_AND_HOWTO.md
+- /data/order-processing/app/services/parser/src/*.ts
+- /data/order-processing/app/services/committee/src/types.ts
+- /data/order-processing/app/services/committee/src/utils/evidence-pack-builder.ts
+- /data/order-processing/v7/specs/schemas/canonical-sales-order.schema.json

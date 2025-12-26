@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "detected_language": "en",
+    "sheet_name": "Orders",
+    "header_row": 0,
+    "data_rows": 2
+  },
+  "customer": {
+    "raw": {
+      "value": "ACME Corporation",
+      "evidence": [
+        {
+          "sheet": "Orders",
+          "cell": "B2",
+          "raw_value": "ACME Corporation"
+        }
+      ]
+    },
+    "resolved": {
+      "zohoCustomerId": "cust_001",
+      "zohoDisplayName": "ACME Corporation",
+      "match": "exact",
+      "confidence": 1.0
+    }
+  },
+  "lines": [
+    {
+      "lineNo": 1,
+      "sku": {
+        "value": "SKU-001",
+        "evidence": [{ "sheet": "Orders", "cell": "A5", "raw_value": "SKU-001" }]
+      },
+      "description": {
+        "value": "Widget A",
+        "evidence": [{ "sheet": "Orders", "cell": "B5", "raw_value": "Widget A" }]
+      },
+      "quantity": {
+        "value": 10,
+        "evidence": [{ "sheet": "Orders", "cell": "C5", "raw_value": 10 }]
+      },
+      "unitPriceSpreadsheet": {
+        "value": 25.50,
+        "evidence": [{ "sheet": "Orders", "cell": "D5", "raw_value": 25.50 }]
+      },
+      "lineTotalSpreadsheet": {
+        "value": 255.00,
+        "evidence": [{ "sheet": "Orders", "cell": "E5", "raw_value": 255.00 }]
+      },
+      "resolved": {
+        "zohoItemId": "item_001",
+        "match": "sku",
+        "confidence": 1.0,
+        "zohoRateUsed": 25.50
+      }
+    },
+    {
+      "lineNo": 2,
+      "sku": {
+        "value": "SKU-002",
+        "evidence": [{ "sheet": "Orders", "cell": "A6", "raw_value": "SKU-002" }]
+      },
+      "description": {
+        "value": "Widget B",
+        "evidence": [{ "sheet": "Orders", "cell": "B6", "raw_value": "Widget B" }]
+      },
+      "quantity": {
+        "value": 5,
+        "evidence": [{ "sheet": "Orders", "cell": "C6", "raw_value": 5 }]
+      },
+      "unitPriceSpreadsheet": {
+        "value": 40.00,
+        "evidence": [{ "sheet": "Orders", "cell": "D6", "raw_value": 40.00 }]
+      },
+      "lineTotalSpreadsheet": {
+        "value": 200.00,
+        "evidence": [{ "sheet": "Orders", "cell": "E6", "raw_value": 200.00 }]
+      },
+      "resolved": {
+        "zohoItemId": "item_002",
+        "match": "sku",
+        "confidence": 1.0,
+        "zohoRateUsed": 40.00
+      }
+    }
+  ],
+  "totalsSpreadsheet": {
+    "total": {
+      "value": 455.00,
+      "evidence": [{ "sheet": "Orders", "cell": "E8", "raw_value": 455.00 }]
+    }
+  },
+  "issues": [],
+  "status": "ready"
+}

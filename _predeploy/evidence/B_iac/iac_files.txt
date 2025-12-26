@@ -1,0 +1,14 @@
+/data/order-processing/app/infra/main.bicep
+/data/order-processing/app/infra/modules/aifoundry.bicep
+/data/order-processing/app/infra/modules/appinsights.bicep
+/data/order-processing/app/infra/modules/bot.bicep
+/data/order-processing/app/infra/modules/containerapp.bicep
+/data/order-processing/app/infra/modules/cosmos.bicep
+/data/order-processing/app/infra/modules/functionapp.bicep
+/data/order-processing/app/infra/modules/keyvault.bicep
+/data/order-processing/app/infra/modules/loganalytics.bicep
+/data/order-processing/app/infra/modules/rbac.bicep
+/data/order-processing/app/infra/modules/secrets.bicep
+/data/order-processing/app/infra/modules/staticwebapp.bicep
+/data/order-processing/app/infra/modules/storage.bicep
+/data/order-processing/app/infra/modules/vnet.bicep

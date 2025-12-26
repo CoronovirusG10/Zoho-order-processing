@@ -1,0 +1,40 @@
+{
+  "name": "order-processing",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Teams-to-Zoho order processing with AI validation",
+  "workspaces": [
+    "packages/*",
+    "services/*",
+    "tests"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:unit": "npm run test --workspace=tests -- unit/",
+    "test:integration": "npm run test --workspace=tests -- integration/",
+    "test:e2e": "npm run test --workspace=tests -- e2e/",
+    "test:golden": "npm run test:golden --workspace=tests",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md}\"",
+    "typecheck": "tsc --build",
+    "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
+    "dev:bot": "npm run dev --workspace=services/teams-bot",
+    "dev:api": "npm run dev --workspace=services/api",
+    "dev:tab": "npm run dev --workspace=services/teams-tab"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.16.0",
+    "eslint-config-prettier": "^9.1.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

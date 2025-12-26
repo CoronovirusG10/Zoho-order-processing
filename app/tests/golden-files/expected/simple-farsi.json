@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "detected_language": "fa",
+    "sheet_name": "سفارشات",
+    "header_row": 0,
+    "data_rows": 2
+  },
+  "customer": {
+    "raw": {
+      "value": "شرکت نمونه",
+      "evidence": [
+        {
+          "sheet": "سفارشات",
+          "cell": "B2",
+          "raw_value": "شرکت نمونه"
+        }
+      ]
+    },
+    "resolved": {
+      "zohoCustomerId": "cust_005",
+      "zohoDisplayName": "شرکت نمونه",
+      "match": "exact",
+      "confidence": 1.0
+    }
+  },
+  "lines": [
+    {
+      "lineNo": 1,
+      "sku": {
+        "value": "SKU-001",
+        "evidence": [{ "sheet": "سفارشات", "cell": "A5", "raw_value": "SKU-001" }]
+      },
+      "description": {
+        "value": "محصول الف",
+        "evidence": [{ "sheet": "سفارشات", "cell": "B5", "raw_value": "محصول الف" }]
+      },
+      "quantity": {
+        "value": 15,
+        "evidence": [{ "sheet": "سفارشات", "cell": "C5", "raw_value": 15 }]
+      },
+      "unitPriceSpreadsheet": {
+        "value": 25.50,
+        "evidence": [{ "sheet": "سفارشات", "cell": "D5", "raw_value": 25.50 }]
+      },
+      "lineTotalSpreadsheet": {
+        "value": 382.50,
+        "evidence": [{ "sheet": "سفارشات", "cell": "E5", "raw_value": 382.50 }]
+      },
+      "resolved": {
+        "zohoItemId": "item_001",
+        "match": "sku",
+        "confidence": 1.0,
+        "zohoRateUsed": 25.50
+      }
+    }
+  ],
+  "totalsSpreadsheet": {
+    "total": {
+      "value": 382.50,
+      "evidence": [{ "sheet": "سفارشات", "cell": "E7", "raw_value": 382.50 }]
+    }
+  },
+  "issues": [],
+  "status": "ready"
+}

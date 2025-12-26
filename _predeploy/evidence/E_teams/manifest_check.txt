@@ -1,0 +1,65 @@
+Teams App Manifest Validation Report
+=====================================
+Generated: 2025-12-26
+
+Manifests Found
+---------------
+1. /data/order-processing/app/teams-app/manifest.json (PRIMARY)
+   - Schema: v1.17
+   - App ID: {{BOT_APP_CLIENT_ID}} (template variable)
+
+2. /data/order-processing/app/services/teams-bot/manifest/manifest.json (SECONDARY)
+   - Schema: v1.16
+   - App ID: ${{BOT_APP_CLIENT_ID}} (template variable)
+
+Primary Manifest Analysis (v1.17)
+---------------------------------
+[PASS] Schema Version: 1.17 (current supported version)
+[PASS] Bot Configuration: Present
+       - botId: {{BOT_APP_CLIENT_ID}}
+       - scopes: ["personal"]
+       - supportsFiles: true
+       - isNotificationOnly: false
+       - Commands: help, status
+
+[PASS] Personal Tab Configuration: Present
+       - "My Orders" tab (entityId: orders)
+       - "Team Orders" tab (entityId: team-orders)
+       - "About" tab (entityId: about)
+
+[PASS] Icons Referenced:
+       - color.png: EXISTS at /data/order-processing/app/teams-app/color.png
+       - outline.png: EXISTS at /data/order-processing/app/teams-app/outline.png
+
+[PASS] webApplicationInfo: Present
+       - id: {{TAB_APP_CLIENT_ID}}
+       - resource: api://{{TAB_DOMAIN}}/{{TAB_APP_CLIENT_ID}}
+
+[PASS] validDomains: Configured
+       - {{TAB_DOMAIN}}
+       - {{BOT_DOMAIN}}
+       - token.botframework.com
+       - login.microsoftonline.com
+
+[PASS] defaultInstallScope: "personal" (correct for 1:1 bot)
+
+[PASS] RSC Permissions: Present
+       - ChatMessage.Read.Chat (Application)
+
+[INFO] Template Variables Detected:
+       - {{BOT_APP_CLIENT_ID}}
+       - {{TAB_APP_CLIENT_ID}}
+       - {{TAB_DOMAIN}}
+       - {{BOT_DOMAIN}}
+       These must be substituted at build/deploy time.
+
+Secondary Manifest Differences
+------------------------------
+- Uses older schema v1.16 (vs v1.17)
+- Different template syntax (${{...}} vs {{...}})
+- Only 1 personal tab ("My Cases") vs 3 tabs
+- Missing authorization/RSC section
+- Missing showLoadingIndicator
+- Placeholder developer URLs (example.com)
+
+Recommendation: Use primary manifest at /data/order-processing/app/teams-app/manifest.json

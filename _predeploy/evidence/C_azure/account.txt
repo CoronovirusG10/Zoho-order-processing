@@ -1,0 +1,10 @@
+# Azure Account Information
+# Generated: 2025-12-26
+
+Environment: AzureCloud
+Subscription Name: Azure subscription 1
+Subscription ID: [REDACTED]
+Tenant ID: [REDACTED]
+Tenant Domain: [REDACTED].onmicrosoft.com
+User: [REDACTED]@360innovate.co.uk
+State: Enabled

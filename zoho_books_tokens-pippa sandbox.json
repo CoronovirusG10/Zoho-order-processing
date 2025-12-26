@@ -1,0 +1,16 @@
+{
+  "region": "eu",
+  "accounts_base": "https://accounts.zoho.eu",
+  "api_base": "https://www.zohoapis.eu",
+  "client_id": "1000.WV2GEEBI3BUVXNMU6FDL66JLA4O8XG",
+  "client_secret": "5388a56be812c3ba3e2d14b0968dfe5b8db912aeb4",
+  "scopes": "ZohoBooks.fullaccess.all",
+  "redirect_uri": "http://localhost:8765/callback",
+  "issued_at_unix": 1766488184,
+  "access_token": "1000.283908dfb9b6f49b5fb9406f17f59a2e.4dd14c1e06d26940cc293b81ae396087",
+  "refresh_token": "1000.535adb4bad80d9bfc9d4be27869d2cb0.a4d52ad6052dc9bd3db43e66ce19f3c3",
+  "scope": "ZohoBooks.fullaccess.all",
+  "api_domain": "https://www.zohoapis.eu",
+  "token_type": "Bearer",
+  "expires_in": 3600
+}

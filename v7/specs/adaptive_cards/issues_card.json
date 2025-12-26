@@ -1,0 +1,59 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "weight": "Bolder",
+      "size": "Large",
+      "text": "Action Required"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Case: ${caseId}",
+      "isSubtle": true,
+      "wrap": true
+    },
+    {
+      "type": "TextBlock",
+      "text": "The spreadsheet could not be processed automatically. Please resolve the items below.",
+      "wrap": true
+    },
+    {
+      "type": "Container",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${issuesList}",
+          "wrap": true
+        }
+      ],
+      "spacing": "Medium"
+    },
+    {
+      "type": "Input.Text",
+      "id": "userNotes",
+      "isMultiline": true,
+      "placeholder": "Optional notes / corrections (e.g. customer is 'ACME Ltd', item 2 SKU is 'ABC-123')"
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Submit",
+      "title": "Submit Corrections",
+      "data": {
+        "action": "submit_corrections",
+        "caseId": "${caseId}"
+      }
+    },
+    {
+      "type": "Action.Submit",
+      "title": "Upload Revised Spreadsheet",
+      "data": {
+        "action": "request_reupload",
+        "caseId": "${caseId}"
+      }
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "detected_language": "en",
+    "sheet_name": "Orders",
+    "header_row": 0,
+    "data_rows": 2
+  },
+  "customer": {
+    "raw": {
+      "value": "ACME Corporation",
+      "evidence": [{ "sheet": "Orders", "cell": "B2", "raw_value": "ACME Corporation" }]
+    },
+    "resolved": {
+      "zohoCustomerId": "cust_001",
+      "zohoDisplayName": "ACME Corporation",
+      "match": "exact",
+      "confidence": 1.0
+    }
+  },
+  "lines": [
+    {
+      "lineNo": 1,
+      "sku": {
+        "value": null,
+        "evidence": []
+      },
+      "description": {
+        "value": "Widget A",
+        "evidence": [{ "sheet": "Orders", "cell": "A5", "raw_value": "Widget A" }]
+      },
+      "quantity": {
+        "value": 10,
+        "evidence": [{ "sheet": "Orders", "cell": "B5", "raw_value": 10 }]
+      },
+      "resolved": {
+        "zohoItemId": null,
+        "match": null,
+        "confidence": 0.0
+      }
+    }
+  ],
+  "issues": [
+    {
+      "code": "MISSING_COLUMN",
+      "severity": "block",
+      "field": "sku",
+      "message": "Required column 'SKU' not found or mapped with low confidence",
+      "requiresUserInput": true
+    },
+    {
+      "code": "ITEM_NOT_FOUND",
+      "severity": "block",
+      "lineNo": 1,
+      "message": "Cannot resolve item without SKU or GTIN",
+      "requiresUserInput": true
+    }
+  ],
+  "status": "blocked"
+}

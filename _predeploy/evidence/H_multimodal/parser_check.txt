@@ -1,0 +1,67 @@
+# Excel Parser Findings
+
+## Implementation Status: IMPLEMENTED
+
+### Location
+- Main parser: /data/order-processing/app/services/parser/src/parser.ts
+- Types: /data/order-processing/app/services/parser/src/types.ts
+- Formula detector: /data/order-processing/app/services/parser/src/formula-detector.ts
+- Row extractor: /data/order-processing/app/services/parser/src/row-extractor.ts
+- Normalizer: /data/order-processing/app/services/parser/src/normalizer.ts
+- Test utilities: /data/order-processing/app/tests/utils/excel-builder.ts
+
+### Library Used
+- ExcelJS (exceljs npm package) - found in tests and parser service
+
+### Key Features Verified
+
+#### 1. Deterministic Extraction - IMPLEMENTED
+- Follows strict 10-step pipeline per SOLUTION_DESIGN.md section 4.8
+- Steps: Formula detection -> Sheet selection -> Header detection -> Schema inference -> Row extraction -> Normalization -> Validation -> Canonical JSON output
+- Uses configurable thresholds for consistent behavior
+- Version tracking: PARSER_VERSION = '1.1.0'
+
+#### 2. Provenance Retention - IMPLEMENTED
+Evidence tracking is comprehensive:
+- EvidenceCell interface includes: sheet, cell, raw_value, display_value, number_format
+- Every extracted value retains its source cell reference
+- Line items include evidence for: sku, gtin, product_name, quantity, unit_price_source, line_total_source
+- Customer data includes evidence array
+- Totals include evidence for subtotal, tax, total
+
+#### 3. Error Handling for Malformed Files - IMPLEMENTED
+- Formula detection with configurable policy (strict/warn/allow)
+- Strict policy blocks formulas as 'blocker' severity
+- Sheet selection handles no suitable sheet found
+- Header detection validates header row exists
+- Empty row skipping implemented
+- Merged cell handling with flags (MERGED_CELL_VALUE, MULTI_ROW_MERGE)
+- Total row detection using English and Farsi keywords
+
+#### 4. Multi-Language Support - IMPLEMENTED
+- Farsi header keywords: کد، کالا، محصول، نام، شرح، تعداد، مقدار، قیمت، جمع، مبلغ، مشتری، خریدار، بارکد
+- Persian/Arabic digit conversion: ۰۱۲۳۴۵۶۷۸۹ / ٠١٢٣٤٥٦٧٨٩ -> 0123456789
+- Language detection based on character ranges
+- Currency symbols including ریال, تومان, درهم
+
+#### 5. Number Normalization - IMPLEMENTED
+Handles multiple locales:
+- US/UK: 1,234.56
+- European: 1.234,56
+- French: 1 234,56
+- Swiss: 1'234.56
+
+#### 6. GTIN Validation - IMPLEMENTED
+- Validates GTIN-8/12/13/14 formats
+- Check digit validation using modulo-10 algorithm
+- Pattern: /^\d{8}|\d{12,14}$/
+
+### Schema Definition
+- Canonical JSON schema: /data/order-processing/v7/specs/schemas/canonical-sales-order.schema.json
+- EvidenceCell definition with: sheet, cell, raw_value, display_value, number_format
+- Full provenance tracking for all fields
+
+### Test Coverage
+- Unit tests: app/tests/unit/parser/*.test.ts
+- Integration tests: app/tests/integration/parser.integration.test.ts
+- Golden file tests referenced in build logs

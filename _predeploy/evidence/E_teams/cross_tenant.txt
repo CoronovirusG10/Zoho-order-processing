@@ -1,0 +1,108 @@
+Cross-Tenant Deployment Strategy Analysis
+==========================================
+Generated: 2025-12-26
+
+Source Documents
+----------------
+- /data/order-processing/CROSS_TENANT_TEAMS_DEPLOYMENT.md
+- /data/order-processing/SOLUTION_DESIGN.md
+
+Scenario
+--------
+- Azure workload in Tenant A (Sweden Central)
+- Teams users in Tenant B
+- 1:1 bot chat with file uploads
+- Personal tab for case management
+
+Current Strategy: MULTI-TENANT ENTRA APP
+----------------------------------------
+From CROSS_TENANT_TEAMS_DEPLOYMENT.md:
+
+The design document specifies:
+- "Create multi-tenant Entra applications in Tenant A"
+- "Supported account types: Accounts in any organisational directory (multi-tenant)"
+- "Bot App: multi-tenant"
+- "Tab/API App: multi-tenant"
+
+This uses the traditional ISV-style multi-tenant bot pattern.
+
+CRITICAL ASSESSMENT
+-------------------
+[BLOCKER] NEW MULTI-TENANT BOT REGISTRATION DEPRECATED
+
+Microsoft has announced that new multi-tenant bot creation will be deprecated
+after 31 July 2025. This project's cross-tenant approach using multi-tenant
+Entra app registrations is AT RISK if bot registration is performed after
+that date.
+
+Reference: Microsoft documentation on bot identity changes (verify current status)
+
+RECOMMENDED ALTERNATIVE APPROACHES
+----------------------------------
+
+Option 1: Single-Tenant Bot + Org App Catalog Distribution
+- Create bot as single-tenant in Tenant A
+- Package Teams app and have Tenant B admin upload to org app catalog
+- Users in Tenant B install from their org catalog
+- Bot framework routing handles cross-tenant messaging
+
+Option 2: Single-Tenant Bot + AppSource Publishing
+- Publish app to Microsoft AppSource
+- Global availability for any tenant
+- More compliance overhead but fully supported
+
+Option 3: Managed Identity Bot (if supported for cross-tenant)
+- Use Azure Managed Identity for bot authentication
+- Verify Microsoft documentation for cross-tenant support
+
+CURRENT IMPLEMENTATION STATUS
+-----------------------------
+The design documents indicate awareness of the issue:
+- Section 3: "Use the bot type Microsoft currently supports for new bots
+  (as of 2025 this is often Single Tenant or Managed Identity bot types;
+  verify in Azure portal)"
+- "Even if the bot resource is 'single tenant', cross-tenant usage is
+  enabled by making the Entra app registration multi-tenant"
+
+This suggests the team is aware of potential changes but documentation
+still references multi-tenant as the primary approach.
+
+FILE DOWNLOAD STRATEGY
+----------------------
+[PASS] Preferred Path: Teams attachment downloadUrl
+       - Code in file-download.ts extracts downloadUrl from attachment.content.downloadUrl
+       - Falls back to attachment.contentUrl
+       - Downloads directly without Graph API
+
+[PARTIAL] Fallback Path: Graph API with OBO token
+       - Method stub exists: downloadViaGraphApi()
+       - Status: "TODO: Implement Graph API fallback if needed"
+       - Not yet implemented
+
+From CROSS_TENANT_TEAMS_DEPLOYMENT.md:
+- "Bot receives an attachment payload including a download URL"
+- "Bot downloads the file immediately (URL is typically time-limited)"
+- "Implement telemetry to detect whether the preferred path works reliably"
+
+TENANT B ADMIN REQUIREMENTS
+---------------------------
+Per documentation, Tenant B admin must:
+1. Upload custom Teams app in Teams admin centre
+2. Configure app permission policies
+3. Grant Entra consent for Tab/API app (SSO)
+4. Optionally grant consent for Bot app (if OAuth used)
+
+CONCLUSION
+----------
+Status: NEEDS_ACTION
+
+The cross-tenant strategy is documented and partially implemented, but:
+1. Primary approach (multi-tenant bot) faces July 2025 deprecation
+2. Alternative strategies should be evaluated before production deployment
+3. Graph API fallback for file download is not implemented (stub only)
+
+IMMEDIATE ACTIONS REQUIRED:
+- Verify current Microsoft guidance on multi-tenant bot deprecation
+- Decide on alternative approach (single-tenant + org catalog recommended)
+- Implement Graph API fallback if cross-tenant file access fails
+- Test file download in actual cross-tenant configuration

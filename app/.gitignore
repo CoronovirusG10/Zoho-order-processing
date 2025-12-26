@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment files - NEVER COMMIT
+.env
+.env.*
+!.env.example
+
+# Secrets - NEVER COMMIT
+*.pem
+*.key
+*.p12
+*.pfx
+zoho_*.json
+*_tokens*.json
+*credentials*.json
+*secret*.json
+*apikey*.json
+*.keystore
+serviceAccountKey.json
+firebase-adminsdk*.json
+client_secret*.json
+oauth*.json
+
+# Key Vault exports
+keyvault-export*.json
+secrets-backup*.json
+
+# Azure
+local.settings.json
+.azure/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Build logs (keep structure, ignore contents)
+_build_logs/**/*.log
+_build_logs/**/*.json
+!_build_logs/.gitkeep

@@ -1,0 +1,58 @@
+Zoho Books API Health Check Results
+====================================
+Audit Date: 2025-12-26
+Method: GET requests only (READ-ONLY audit)
+
+TOKEN STATUS
+------------
+Initial token state: EXPIRED
+  - issued_at_unix: 1766488184
+  - expires_in: 3600 seconds
+  - Current time at check: 1766739942
+  - Time since issue: ~69 hours (expired)
+
+Token refresh: SUCCESS
+  - Endpoint: https://accounts.zoho.eu/oauth/v2/token
+  - Grant type: refresh_token
+  - New access_token: [REDACTED]
+  - Scope: ZohoBooks.fullaccess.all
+  - New expires_in: 3600 seconds
+
+ENDPOINT HEALTH CHECKS
+----------------------
+
+1. List Organizations
+   Endpoint: GET https://www.zohoapis.eu/books/v3/organizations
+   Status: SUCCESS (code: 0)
+   Organizations found: 2
+     - Pippa Sandbox (organization_id: 20111340673)
+       - Country: United Kingdom
+       - Currency: GBP
+       - Plan: PREMIUM TRIAL
+       - Status: Active
+     - Pippa of London Iran (organization_id: 20083712771)
+       - Country: United Kingdom
+       - Currency: IRR
+       - Plan: PREMIUM (Monthly)
+       - Status: Active
+
+2. List Contacts (per_page=1)
+   Endpoint: GET https://www.zohoapis.eu/books/v3/contacts
+   Organization: 20111340673 (Pippa Sandbox)
+   Status: SUCCESS (message: "success")
+
+3. List Items (per_page=1)
+   Endpoint: GET https://www.zohoapis.eu/books/v3/items
+   Organization: 20111340673 (Pippa Sandbox)
+   Status: SUCCESS (message: "success")
+
+SUMMARY
+-------
+Token refresh mechanism: WORKING
+Organizations API: WORKING
+Contacts API: WORKING
+Items API: WORKING
+Overall API Health: HEALTHY
+
+NOTE: Access token in token file is stale. Token refresh works correctly.
+Consider implementing automatic token refresh before API calls.

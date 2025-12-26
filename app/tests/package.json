@@ -1,0 +1,34 @@
+{
+  "name": "@order-processing/tests",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Test suite for order processing application",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:unit": "vitest run unit/",
+    "test:integration": "vitest run integration/",
+    "test:e2e": "vitest run e2e/",
+    "test:golden": "tsx golden-files/runner.ts",
+    "test:golden:calibrate": "tsx golden-files/runner.ts --calibrate",
+    "fixtures:generate": "tsx fixtures/generate-fixtures.ts"
+  },
+  "dependencies": {
+    "@order-processing/types": "*",
+    "@order-processing/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@vitest/ui": "^2.1.8",
+    "@vitest/coverage-v8": "^2.1.8",
+    "exceljs": "^4.4.0",
+    "msw": "^2.6.8",
+    "fastest-levenshtein": "^1.0.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/order-processing-event.json",
+  "title": "OrderProcessingEvent",
+  "type": "object",
+  "required": [
+    "ts",
+    "event_type",
+    "case_id",
+    "tenant_id",
+    "sequence"
+  ],
+  "properties": {
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonic per-case event sequence number"
+    },
+    "event_type": {
+      "type": "string"
+    },
+    "case_id": {
+      "type": "string"
+    },
+    "tenant_id": {
+      "type": "string"
+    },
+    "correlation": {
+      "type": "object",
+      "properties": {
+        "trace_id": {
+          "type": "string"
+        },
+        "span_id": {
+          "type": "string"
+        },
+        "teams_activity_id": {
+          "type": "string"
+        },
+        "foundry_run_id": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "actor": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "system",
+            "bot",
+            "agent",
+            "admin",
+            "scheduler"
+          ]
+        },
+        "aad_user_id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "display_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ip": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "data": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "pointers": {
+      "type": "object",
+      "description": "URIs to blobs / documents containing large payloads (file bytes, raw model output, raw API responses)",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "redactions": {
+      "type": "object",
+      "properties": {
+        "contains_secrets": {
+          "type": "boolean"
+        },
+        "contains_pii": {
+          "type": "boolean"
+        },
+        "policy": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

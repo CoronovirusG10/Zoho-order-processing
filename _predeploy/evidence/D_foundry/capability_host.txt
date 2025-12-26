@@ -1,0 +1,63 @@
+# Azure AI Foundry Capability Host Configuration
+# Generated: 2025-12-26
+# Source: app/infra/*.bicep analysis
+
+## CAPABILITY HOST STATUS: PARTIALLY CONFIGURED
+
+### Required Resources for BYO Capability Host
+| Resource | Status | Location | Notes |
+|----------|--------|----------|-------|
+| Cosmos DB | CONFIGURED | Sweden Central | order-processing-${environment}-cosmos |
+| Storage Account | CONFIGURED | Sweden Central | orderstor${uniqueSuffix} |
+| AI Search | NOT CONFIGURED | N/A | No Azure Cognitive Search resource defined in infrastructure |
+
+### Cosmos DB Configuration (Thread Storage)
+- Account: order-processing-${environment}-cosmos
+- Database: order-processing
+- Containers:
+  - cases (partition: tenantId) - Order case records
+  - fingerprints (partition: fingerprint) - Idempotency tracking
+  - events (partition: caseId) - Audit trail
+  - agentThreads (partition: threadId) - Foundry agent threads (30-day TTL)
+  - committeeVotes (partition: caseId) - ML committee results
+  - cache (partition: cacheKey) - API response cache
+
+### Storage Account Configuration (File Storage)
+- Account: orderstor${uniqueSuffix}
+- Location: Sweden Central
+- Containers:
+  - orders-incoming: Raw uploaded Excel files
+  - orders-audit: Immutable audit bundles (with versioning)
+  - logs-archive: Archived diagnostic logs
+  - committee-evidence: Committee voting evidence
+- Retention: 1825 days (5 years) with lifecycle tiering
+- Features: Immutable storage for audit container
+
+### AI Search Configuration (Vector Store)
+- Status: NOT DEPLOYED
+- Required for: Vector embeddings, semantic search
+- Recommendation: Deploy Azure Cognitive Search in Sweden Central
+
+### AI Foundry Hub/Project Configuration
+- Hub: order-processing-${environment}-hub
+- Project: order-processing-${environment}-project
+- AI Services: order-processing-${environment}-aiservices
+- Location: Sweden Central
+- Mode: Managed network disabled (public access enabled)
+- Connected Resources:
+  - Storage Account (existing)
+  - Key Vault (existing)
+  - Application Insights (existing)
+  - AI Services (Azure Cognitive Services)
+
+### Capability Host Integration Notes
+1. Cosmos DB container 'agentThreads' exists for Foundry thread storage
+2. Storage account supports BYO file storage for Foundry
+3. AI Search NOT provisioned - required for full capability host
+4. FoundryAgentClient code uses Azure AI Foundry Assistants API
+5. Model deployment name defaults to 'gpt-4o' (configurable via AGENT_MODEL_DEPLOYMENT)
+
+### Data Sovereignty
+- All resources in Sweden Central (EU)
+- 5-year retention configured in storage lifecycle
+- Immutable storage enabled for audit container

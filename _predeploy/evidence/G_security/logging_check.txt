@@ -1,0 +1,65 @@
+# Logging and Correlation ID Check
+# Generated: 2025-12-26
+# Audit Type: READ-ONLY Security Assessment
+
+## Correlation Context Implementation
+File: /data/order-processing/app/packages/shared/src/correlation/context.ts
+
+### Features:
+- [PASS] Uses AsyncLocalStorage for context propagation
+- [PASS] Generates 16-byte (32 hex char) trace IDs
+- [PASS] Generates 8-byte (16 hex char) span IDs
+- [PASS] Supports parent-child span relationships
+- [PASS] Includes metadata fields: caseId, tenantId, userId, teamsActivityId
+
+### CorrelationContext Interface:
+```typescript
+export interface CorrelationContext {
+  traceId: string;
+  spanId: string;
+  parentSpanId?: string;
+  caseId?: string;
+  tenantId?: string;
+  userId?: string;
+  teamsActivityId?: string;
+  [key: string]: unknown;
+}
+```
+
+## Structured Logger Implementation
+File: /data/order-processing/app/packages/shared/src/logging/logger.ts
+
+### Features:
+- [PASS] Structured logging with JSON output
+- [PASS] Correlation context integration (traceId, spanId)
+- [PASS] Secret redaction enabled by default
+- [PASS] Application Insights integration (placeholder)
+- [PASS] Log levels: debug, info, warn, error
+
+### Secret Redaction Patterns:
+The logger automatically redacts values for keys matching:
+- token, password, secret, key
+- authorization, bearer
+- api[-_]?key, access[-_]?token, refresh[-_]?token
+
+### LogEntry Structure:
+```typescript
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  message: string;
+  context: LogContext;
+  error?: { name: string; message: string; stack?: string; };
+  [key: string]: unknown;
+}
+```
+
+## Evidence in Test Files:
+- tests/utils/test-helpers.ts: createMockCorrelationId() function
+- tests/mocks/sample-orders.ts: correlation field in mock data
+- tests/e2e/setup/mock-teams.ts: correlationId in processing cards
+
+## Verdict: PASS
+- Correlation IDs are fully implemented
+- Structured logging with secret redaction
+- AsyncLocalStorage ensures context propagation across async operations

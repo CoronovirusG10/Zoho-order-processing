@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "environment": {
+      "value": "test"
+    },
+    "location": {
+      "value": "swedencentral"
+    },
+    "owner": {
+      "value": "sales-team"
+    },
+    "cosmosThroughputMode": {
+      "value": "serverless"
+    },
+    "functionPlanType": {
+      "value": "Premium"
+    },
+    "enablePrivateEndpoints": {
+      "value": false
+    },
+    "logRetentionDays": {
+      "value": 180
+    },
+    "blobRetentionDays": {
+      "value": 1825
+    },
+    "deployAiFoundry": {
+      "value": true
+    },
+    "foundryHubResourceId": {
+      "value": ""
+    },
+    "foundryProjectResourceId": {
+      "value": ""
+    },
+    "zohoClientId": {
+      "value": ""
+    },
+    "zohoClientSecret": {
+      "value": ""
+    },
+    "zohoRefreshToken": {
+      "value": ""
+    },
+    "teamsAppTenantId": {
+      "value": ""
+    },
+    "teamsAppId": {
+      "value": ""
+    },
+    "openAiApiKey": {
+      "value": ""
+    },
+    "anthropicApiKey": {
+      "value": ""
+    },
+    "googleAiApiKey": {
+      "value": ""
+    },
+    "deepSeekApiKey": {
+      "value": ""
+    },
+    "xAiApiKey": {
+      "value": ""
+    }
+  }
+}

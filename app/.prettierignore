@@ -1,0 +1,27 @@
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Infra (Bicep)
+infra/**/*.bicep
+
+# Generated files
+coverage/
+*.min.js
+*.min.css
+
+# Build logs
+_build_logs/
+
+# Static assets (Teams Tab)
+services/teams-tab/public/
+
+# Lock files
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

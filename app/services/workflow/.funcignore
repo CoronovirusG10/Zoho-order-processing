@@ -1,0 +1,26 @@
+# Ignore build artifacts
+*.ts
+!dist/**/*.ts
+
+# Ignore source files
+src/
+
+# Ignore development files
+tsconfig.json
+.gitignore
+.git/
+.vscode/
+local.settings.json
+test/
+*.test.ts
+*.spec.ts
+
+# Ignore documentation
+*.md
+docs/
+
+# Ignore node modules (handled separately)
+node_modules/
+
+# Ignore build artifacts
+*.tsbuildinfo

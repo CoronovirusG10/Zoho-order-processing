@@ -1,0 +1,100 @@
+teams-tab/
+├── .vscode/
+│   ├── extensions.json          # Recommended VS Code extensions
+│   └── settings.json             # VS Code workspace settings
+├── public/
+│   ├── staticwebapp.config.json  # Azure Static Web Apps configuration
+│   └── vite.svg                  # Default favicon
+├── src/
+│   ├── components/
+│   │   ├── AuditTimeline.tsx     # Expandable audit event timeline
+│   │   ├── CaseDetail.tsx        # Full case detail view with actions
+│   │   ├── CaseFilters.tsx       # Collapsible filter controls
+│   │   ├── CaseList.tsx          # Case list table component
+│   │   ├── IssuesList.tsx        # Issues display with severity
+│   │   ├── LoadingSpinner.tsx    # Loading state component
+│   │   ├── OrderPreview.tsx      # Order line items preview
+│   │   └── StatusBadge.tsx       # Visual status indicator
+│   ├── hooks/
+│   │   ├── useCase.ts            # Single case detail fetching
+│   │   ├── useCases.ts           # Case list fetching with filters
+│   │   ├── useRole.ts            # User role and permissions
+│   │   └── useTeamsAuth.ts       # Teams SDK initialization and SSO
+│   ├── services/
+│   │   ├── api-client.ts         # Backend API communication
+│   │   └── auth-service.ts       # Teams SSO and token management
+│   ├── styles/
+│   │   └── globals.css           # Global styles with Tailwind
+│   ├── types/
+│   │   └── index.ts              # All TypeScript type definitions
+│   ├── App.tsx                   # Main application component
+│   └── main.tsx                  # Application entry point
+├── .env.example                  # Environment variables template
+├── .eslintrc.cjs                 # ESLint configuration
+├── .gitignore                    # Git ignore patterns
+├── .prettierrc                   # Prettier formatting rules
+├── DEPLOYMENT.md                 # Azure deployment guide
+├── IMPLEMENTATION_SUMMARY.md     # Complete implementation overview
+├── README.md                     # Project documentation
+├── TESTING.md                    # Comprehensive testing guide
+├── index.html                    # HTML entry point
+├── package.json                  # Dependencies and scripts
+├── postcss.config.js             # PostCSS configuration
+├── tailwind.config.js            # Tailwind CSS configuration
+├── tsconfig.json                 # TypeScript configuration
+├── tsconfig.node.json            # TypeScript config for Node files
+└── vite.config.ts                # Vite build configuration
+
+COMPONENT HIERARCHY:
+
+App (QueryClientProvider)
+└── AppContent
+    ├── CaseList View (default)
+    │   ├── CaseFilters
+    │   └── CaseList
+    │       └── StatusBadge (per row)
+    │
+    └── CaseDetail View (when case selected)
+        ├── StatusBadge
+        ├── IssuesList
+        ├── OrderPreview
+        └── AuditTimeline
+
+HOOKS USAGE:
+
+- useTeamsAuth: App initialization
+- useRole: AppContent (role-based rendering)
+- useCases: AppContent (list view)
+- useCase: CaseDetail (detail view)
+
+API FLOW:
+
+1. Teams SDK → getAuthToken()
+2. authService → exchange Teams token → API token
+3. apiClient → authenticated API requests
+4. React Query → cache & state management
+
+AUTHENTICATION:
+
+Teams (Tenant B) → SSO Token
+    ↓
+API (Tenant A) → Exchange Token
+    ↓
+Backend APIs → Authenticated Requests
+
+ROLE-BASED VIEWS:
+
+SalesUser:
+- My Cases only
+- No team filters
+- Can create drafts for own cases
+
+SalesManager:
+- All team cases
+- Salesperson filter
+- Can create drafts for any case
+
+OpsAuditor:
+- All cases (read-only)
+- Cannot create drafts
+- Can download audit bundles

@@ -1,0 +1,162 @@
+INFRASTRUCTURE AS CODE - FILES CREATED
+=====================================
+
+This directory contains comprehensive Bicep Infrastructure as Code for deploying
+the Order Processing application (Teams → Excel → AI → Zoho) to Azure Sweden Central.
+
+DIRECTORY STRUCTURE
+-------------------
+infra/
+├── main.bicep                          Main orchestration template (subscription-level)
+├── main.parameters.dev.json            Development environment parameters
+├── main.parameters.prod.json           Production environment parameters
+├── .bicepconfig.json                   Bicep linting configuration
+│
+├── modules/                            Reusable Bicep modules
+│   ├── appinsights.bicep              Application Insights (workspace-based)
+│   ├── bot.bicep                      Azure Bot Service with Teams channel
+│   ├── containerapp.bicep             Container App for bot runtime (prod)
+│   ├── cosmos.bicep                   Cosmos DB with 5 containers
+│   ├── functionapp.bicep              Function App template (reusable)
+│   ├── keyvault.bicep                 Key Vault with RBAC
+│   ├── loganalytics.bicep             Log Analytics workspace
+│   ├── rbac.bicep                     RBAC role assignments
+│   ├── secrets.bicep                  Key Vault secrets population
+│   ├── staticwebapp.bicep             Static Web App for Teams tab
+│   ├── storage.bicep                  Storage account with lifecycle policies
+│   └── vnet.bicep                     Virtual Network for private endpoints
+│
+├── scripts/                            Deployment and utility scripts
+│   ├── deploy.sh                      Bash deployment script (Linux/macOS)
+│   ├── deploy.ps1                     PowerShell deployment script (Windows)
+│   ├── setup-secrets.sh               Interactive secrets configuration
+│   └── validate.sh                    Post-deployment validation
+│
+└── documentation/                      Documentation files
+    ├── README.md                       Comprehensive deployment guide
+    ├── DEPLOYMENT_CHECKLIST.md         Step-by-step deployment checklist
+    ├── INFRASTRUCTURE_OVERVIEW.md      Architecture and design overview
+    ├── QUICK_REFERENCE.md              One-page developer cheat sheet
+    └── FILES_CREATED.txt               This file
+
+RESOURCE COUNT
+--------------
+Total Bicep Files:       13 (1 main + 12 modules)
+Parameter Files:         2 (dev, prod)
+Scripts:                 4 (2 deployment, 1 secrets, 1 validation)
+Documentation Files:     5
+Configuration Files:     1
+
+TOTAL FILES:            25
+
+RESOURCES DEPLOYED
+------------------
+Core Infrastructure:
+- 1 Resource Group
+- 1 Storage Account (4 containers, 2 queues, lifecycle policies)
+- 1 Cosmos DB Account (1 database, 5 containers)
+- 1 Key Vault (7+ secrets)
+- 1 Application Insights
+- 1 Log Analytics Workspace
+
+Compute:
+- 3 Function Apps (workflow, parser, zoho)
+- 1 Azure Bot Service (with Teams channel)
+- 1 Static Web App (Teams tab)
+- 1 Container App Environment (prod only)
+- 1 Container App (prod only)
+
+Networking (prod only):
+- 1 Virtual Network
+- 3 Subnets
+- 1 Network Security Group
+- 3 Private Endpoints (Storage, Cosmos, Key Vault)
+
+FEATURES
+--------
+✓ Managed Identity for all services
+✓ RBAC-based access control
+✓ Key Vault for secrets management
+✓ Private endpoints for production
+✓ 5-year audit retention
+✓ Immutable storage for compliance
+✓ Diagnostic settings on all resources
+✓ Auto-scaling and high availability
+✓ Lifecycle management policies
+✓ Continuous backup (Cosmos DB)
+✓ Soft delete and versioning
+✓ Zone redundancy (production)
+
+DEPLOYMENT OPTIONS
+------------------
+1. Quick deploy (dev):
+   ./scripts/deploy.sh dev swedencentral
+
+2. Production deploy with validation:
+   ./scripts/deploy.sh prod swedencentral --what-if
+   ./scripts/deploy.sh prod swedencentral
+
+3. Manual deployment:
+   az deployment sub create \
+     --location swedencentral \
+     --template-file main.bicep \
+     --parameters @main.parameters.dev.json
+
+PREREQUISITES
+-------------
+- Azure CLI 2.50+
+- Bicep CLI (auto-installed)
+- Azure subscription with Contributor/Owner role
+- Teams App ID and credentials
+- Zoho OAuth credentials
+
+POST-DEPLOYMENT
+---------------
+1. Run: ./scripts/setup-secrets.sh dev <key-vault-name>
+2. Run: ./scripts/validate.sh dev
+3. Deploy application code to Function Apps
+4. Configure Teams app manifest
+5. Link Foundry Agent
+6. Test end-to-end workflow
+
+COST ESTIMATES
+--------------
+Development:   $50-150/month (serverless, consumption plan)
+Production:    $500-1500/month (provisioned, premium plan, 100-200 orders/day)
+
+SUPPORT
+-------
+- Documentation: See README.md
+- Troubleshooting: See INFRASTRUCTURE_OVERVIEW.md
+- Quick Reference: See QUICK_REFERENCE.md
+- Checklist: See DEPLOYMENT_CHECKLIST.md
+
+ARCHITECTURE ALIGNMENT
+----------------------
+All resources deployed to: Sweden Central (swedencentral)
+Follows design from: /data/order-processing/SOLUTION_DESIGN.md
+MVP requirements: /data/order-processing/MVP_AND_HOWTO.md
+
+SECURITY & COMPLIANCE
+---------------------
+✓ All secrets in Key Vault
+✓ Managed Identity authentication
+✓ TLS 1.2 minimum
+✓ Private endpoints (prod)
+✓ Immutable audit storage
+✓ 5-year retention
+✓ RBAC enforcement
+✓ Diagnostic logging
+✓ Soft delete enabled
+
+VERSION INFORMATION
+-------------------
+Version:        1.0.0
+Created:        2025-12-25
+Target Region:  Sweden Central
+API Versions:   Latest stable (2023-2024)
+Runtime:        Python 3.11 (Function Apps)
+
+=====================================
+Ready for deployment!
+=====================================

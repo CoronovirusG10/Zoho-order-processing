@@ -1,0 +1,330 @@
+openapi: 3.0.3
+info:
+  title: Order Processing API
+  version: 0.1.0
+  description: |
+    Backend API for Teams-based order processing application.
+    Serves Teams tab requests and bot webhook events.
+
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:3000
+    description: Development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Teams SSO JWT token
+
+  schemas:
+    Case:
+      type: object
+      properties:
+        id:
+          type: string
+        caseId:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        userDisplayName:
+          type: string
+        status:
+          type: string
+          enum:
+            - processing
+            - needs_input
+            - ready
+            - approved
+            - draft_created
+            - failed
+            - cancelled
+        blobUrl:
+          type: string
+        fileName:
+          type: string
+        fileSha256:
+          type: string
+        customerName:
+          type: string
+        zohoSalesOrderId:
+          type: string
+        zohoSalesOrderNumber:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        correlationId:
+          type: string
+
+    CasePage:
+      type: object
+      properties:
+        cases:
+          type: array
+          items:
+            $ref: '#/components/schemas/Case'
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    OrderProcessingEvent:
+      type: object
+      properties:
+        id:
+          type: string
+        caseId:
+          type: string
+        tenantId:
+          type: string
+        sequence:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        eventType:
+          type: string
+        userId:
+          type: string
+        data:
+          type: object
+        correlationId:
+          type: string
+
+    SasUrlResponse:
+      type: object
+      properties:
+        sasUrl:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            correlationId:
+              type: string
+            details:
+              type: object
+
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        dependencies:
+          type: object
+          properties:
+            cosmos:
+              type: string
+              enum: [up, down]
+            blob:
+              type: string
+              enum: [up, down]
+
+paths:
+  /health:
+    get:
+      summary: Basic health check
+      security: []
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/ready:
+    get:
+      summary: Readiness probe
+      security: []
+      responses:
+        '200':
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '503':
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /health/live:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /api/cases:
+    get:
+      summary: List cases
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: customer
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: userId
+          in: query
+          description: Filter by user (managers only)
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: List of cases
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CasePage'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/cases/{caseId}:
+    get:
+      summary: Get case details
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Case details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Case'
+        '404':
+          description: Case not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/cases/{caseId}/audit:
+    get:
+      summary: Get audit trail for case
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OrderProcessingEvent'
+        '404':
+          description: Case not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /api/cases/{caseId}/download-sas:
+    get:
+      summary: Get SAS URL for file download
+      parameters:
+        - name: caseId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SAS URL generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SasUrlResponse'
+        '404':
+          description: Case or file not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'

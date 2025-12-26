@@ -1,0 +1,125 @@
+# Azure Container Apps deployment manifest
+# Deploy with: az containerapp create -f deployment.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-processing-api
+  namespace: order-processing
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: order-processing-api
+  template:
+    metadata:
+      labels:
+        app: order-processing-api
+        version: v1
+    spec:
+      serviceAccountName: order-processing-api
+      containers:
+        - name: api
+          image: orderprocessing.azurecr.io/api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+            - name: CORS_ORIGINS
+              value: https://teams.microsoft.com
+            - name: COSMOS_ENDPOINT
+              valueFrom:
+                secretKeyRef:
+                  name: cosmos-config
+                  key: endpoint
+            - name: COSMOS_DATABASE
+              value: order-processing
+            - name: STORAGE_ACCOUNT_URL
+              valueFrom:
+                secretKeyRef:
+                  name: storage-config
+                  key: account-url
+            - name: APIM_SUBSCRIPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: apim-config
+                  key: subscription-key
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: managed-identity
+                  key: client-id
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-processing-api
+  namespace: order-processing
+spec:
+  type: ClusterIP
+  selector:
+    app: order-processing-api
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+---
+# Horizontal Pod Autoscaler
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: order-processing-api-hpa
+  namespace: order-processing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: order-processing-api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

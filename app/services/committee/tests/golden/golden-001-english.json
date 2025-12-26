@@ -1,0 +1,78 @@
+{
+  "caseId": "golden-001",
+  "description": "Standard English order with clear headers",
+  "filePath": "./golden-files/order-001-english.xlsx",
+  "evidencePack": {
+    "caseId": "golden-001",
+    "candidateHeaders": [
+      "Customer Name",
+      "SKU",
+      "Quantity",
+      "Unit Price",
+      "Line Total"
+    ],
+    "sampleValues": {
+      "0": ["Acme Corp", "Beta Industries", "Gamma Trading", "Delta Corp", "Epsilon Ltd"],
+      "1": ["ABC-001", "XYZ-999", "DEF-555", "GHI-222", "JKL-888"],
+      "2": ["10", "5", "25", "15", "8"],
+      "3": ["100.00", "250.50", "75.25", "99.99", "45.00"],
+      "4": ["1000.00", "1252.50", "1881.25", "1499.85", "360.00"]
+    },
+    "columnStats": [
+      {
+        "columnId": "0",
+        "headerText": "Customer Name",
+        "nonEmptyCount": 10,
+        "uniqueCount": 8,
+        "dataTypes": { "string": 10 },
+        "patterns": []
+      },
+      {
+        "columnId": "1",
+        "headerText": "SKU",
+        "nonEmptyCount": 10,
+        "uniqueCount": 10,
+        "dataTypes": { "string": 10 },
+        "patterns": ["XXX-999"]
+      },
+      {
+        "columnId": "2",
+        "headerText": "Quantity",
+        "nonEmptyCount": 10,
+        "uniqueCount": 8,
+        "dataTypes": { "number": 10 },
+        "patterns": []
+      },
+      {
+        "columnId": "3",
+        "headerText": "Unit Price",
+        "nonEmptyCount": 10,
+        "uniqueCount": 10,
+        "dataTypes": { "number": 10 },
+        "patterns": ["Currency"]
+      },
+      {
+        "columnId": "4",
+        "headerText": "Line Total",
+        "nonEmptyCount": 10,
+        "uniqueCount": 10,
+        "dataTypes": { "number": 10 },
+        "patterns": ["Currency"]
+      }
+    ],
+    "detectedLanguage": "en",
+    "constraints": [
+      "Must choose from candidate column IDs (0-4) only",
+      "Cannot invent new columns or values",
+      "Return null if no suitable match exists"
+    ],
+    "timestamp": "2025-12-25T12:00:00Z"
+  },
+  "expectedMappings": {
+    "customer_name": "0",
+    "sku": "1",
+    "quantity": "2",
+    "unit_price": "3",
+    "line_total": "4"
+  }
+}

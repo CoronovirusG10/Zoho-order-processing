@@ -1,0 +1,47 @@
+# Azure AI Foundry Model Deployment Status
+# Generated: 2025-12-26
+# Source: MODEL_ACCESS_REPORT_2025-12-20.md
+
+## REQUIRED MODELS FOR ORDER PROCESSING
+
+### Orchestrator Model (Required for Agent Service)
+| Model | Required | Deployed | Notes |
+|-------|----------|----------|-------|
+| gpt-5.1 | YES | YES | AgentAI deployment. Capacity: 5,177. Deployed in Sweden Central. |
+
+### Committee Models (Required for multi-model voting)
+| Model | Required | Deployed | Notes |
+|-------|----------|----------|-------|
+| o3 | YES | YES | Deployed. Capacity: 1,000. Quota increase recommended to 5,000. |
+| claude-opus-4-5 | YES | YES | Deployed. Capacity: 1,912. Quota increase recommended to 5,000. |
+
+### OCR Models (For document processing)
+| Model | Required | Deployed | Notes |
+|-------|----------|----------|-------|
+| mistral-document-ai | YES | YES | mistral-document-ai-2505 deployed. |
+| gpt-4o (vision) | OPTIONAL | YES | gpt-4o deployed. Alternative OCR via vision capability. |
+
+### STT Models (Speech-to-Text)
+| Model | Required | Deployed | Notes |
+|-------|----------|----------|-------|
+| gpt-4o-transcribe | OPTIONAL | UNKNOWN | Not found in current deployment list. whisper alternative available. |
+
+### Embeddings (For semantic search)
+| Model | Required | Deployed | Notes |
+|-------|----------|----------|-------|
+| Cohere-embed-v3-multilingual | YES | YES | Deployed. |
+
+## ADDITIONAL DEPLOYED COMMITTEE MODELS
+| Model | Capacity | Provider | Status |
+|-------|----------|----------|--------|
+| gpt-5.2 | 5,000 | Azure/OpenAI | Deployed |
+| DeepSeek-V3.2 | 3,173 | Azure/DeepSeek | Deployed |
+| grok-4-fast-reasoning | 2,914 | Azure/xAI | Deployed |
+| gemini-2.5-pro | Direct API | Google | Available via API key |
+
+## SUMMARY
+- Core models: ALL DEPLOYED
+- Committee models: SUFFICIENT (5+ diverse models available)
+- OCR: AVAILABLE (mistral-document-ai-2505)
+- Embeddings: AVAILABLE (Cohere-embed-v3-multilingual)
+- STT: NOT REQUIRED (current workflow uses Excel upload, not speech)

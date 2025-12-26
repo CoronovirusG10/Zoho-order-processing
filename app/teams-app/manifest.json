@@ -1,0 +1,105 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "{{BOT_APP_CLIENT_ID}}",
+  "developer": {
+    "name": "Order Processing Team",
+    "websiteUrl": "https://{{TAB_DOMAIN}}",
+    "privacyUrl": "https://{{TAB_DOMAIN}}/privacy",
+    "termsOfUseUrl": "https://{{TAB_DOMAIN}}/terms"
+  },
+  "name": {
+    "short": "Order Processing",
+    "full": "Order Processing Assistant"
+  },
+  "description": {
+    "short": "Process sales orders from Excel files via Teams chat",
+    "full": "Upload Excel order files in a personal chat, and the bot will extract, validate, and create orders in Zoho Books. View and manage your cases in the personal tab."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#5B5FC7",
+  "bots": [
+    {
+      "botId": "{{BOT_APP_CLIENT_ID}}",
+      "scopes": [
+        "personal"
+      ],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal"
+          ],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Get help on how to use the Order Processing bot"
+            },
+            {
+              "title": "status",
+              "description": "Check the status of your recent orders"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "orders",
+      "name": "My Orders",
+      "contentUrl": "https://{{TAB_DOMAIN}}/tab?context=orders",
+      "websiteUrl": "https://{{TAB_DOMAIN}}/orders",
+      "scopes": [
+        "personal"
+      ]
+    },
+    {
+      "entityId": "team-orders",
+      "name": "Team Orders",
+      "contentUrl": "https://{{TAB_DOMAIN}}/tab?context=team-orders",
+      "websiteUrl": "https://{{TAB_DOMAIN}}/team-orders",
+      "scopes": [
+        "personal"
+      ]
+    },
+    {
+      "entityId": "about",
+      "scopes": [
+        "personal"
+      ],
+      "name": "About"
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "{{TAB_DOMAIN}}",
+    "{{BOT_DOMAIN}}",
+    "token.botframework.com",
+    "login.microsoftonline.com"
+  ],
+  "webApplicationInfo": {
+    "id": "{{TAB_APP_CLIENT_ID}}",
+    "resource": "api://{{TAB_DOMAIN}}/{{TAB_APP_CLIENT_ID}}"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChatMessage.Read.Chat",
+          "type": "Application"
+        }
+      ]
+    }
+  },
+  "defaultInstallScope": "personal",
+  "defaultGroupCapability": {}
+}

@@ -1,0 +1,84 @@
+# Azure Resources Inventory
+# Generated: 2025-12-26
+
+## Resource Groups (9 total)
+| Name                           | Location       | Status    |
+|--------------------------------|----------------|-----------|
+| UK-foundry1                    | ukwest         | Succeeded |
+| Foundry                        | swedencentral  | Succeeded |
+| rg-kaveh-1076                  | swedencentral  | Succeeded |
+| pippai-rg                      | swedencentral  | Succeeded |
+| NetworkWatcherRG               | swedencentral  | Succeeded |
+| rg-kaveh-6682                  | swedencentral  | Succeeded |
+| rg-kaveh-7251                  | swedencentral  | Succeeded |
+| AzureBackupRG_swedencentral_1  | swedencentral  | Succeeded |
+| rg-kaveh-3935_ai               | eastus2        | Succeeded |
+
+Primary Resource Group for Order Processing: pippai-rg (swedencentral)
+
+## Storage Accounts (4 total)
+| Name                      | Location       | Resource Group    | TLS Version | Public Access |
+|---------------------------|----------------|-------------------|-------------|---------------|
+| stkaveh9998a120049154728  | eastus2        | rg-kaveh-3935_ai  | TLS1_2      | Disabled      |
+| pippaimcpstorage          | swedencentral  | pippai-rg         | TLS1_2      | Disabled      |
+| pippaistoragedev          | swedencentral  | pippai-rg         | TLS1_2      | Disabled      |
+| visionarylabvideos        | swedencentral  | pippai-rg         | TLS1_0      | Enabled       |
+
+Blob Versioning: NOT ENABLED on any storage account
+Delete Retention Policy: NOT ENABLED on any storage account
+Container Delete Retention: NOT CONFIGURED
+
+## Key Vaults (3 total)
+| Name                     | Location       | Resource Group    |
+|--------------------------|----------------|-------------------|
+| pippai-keyvault-dev      | swedencentral  | pippai-rg         |
+| pippai-uiagent-kv        | swedencentral  | pippai-rg         |
+| kv-kaveh999120049154728  | eastus2        | rg-kaveh-3935_ai  |
+
+Primary Key Vault: pippai-keyvault-dev
+
+## Log Analytics Workspaces (1 total)
+| Name         | Location       | Resource Group | Retention Days |
+|--------------|----------------|----------------|----------------|
+| pippai-logs  | swedencentral  | pippai-rg      | 30             |
+
+## Application Insights
+Status: Not found / Not configured
+
+## Function Apps
+Status: None found
+
+## Container Apps
+Status: None found (extension may not be installed)
+
+## Cognitive Services / AI Services (8 total)
+| Name                        | Kind        | Location       | Resource Group    |
+|-----------------------------|-------------|----------------|-------------------|
+| kaveh-mi5ux306-eastus2      | AIServices  | eastus2        | uk-foundry1       |
+| ai-kaveh9998ai120049154728  | AIServices  | eastus2        | rg-kaveh-3935_ai  |
+| foundryghd5544              | AIServices  | swedencentral  | Foundry           |
+| kaveh-1076-resource         | AIServices  | swedencentral  | rg-kaveh-1076     |
+| kaveh-6682-resource         | AIServices  | swedencentral  | rg-kaveh-6682     |
+| kaveh-7251-resource         | AIServices  | swedencentral  | rg-kaveh-7251     |
+| kaveh-miegyxjn-norwayeast   | AIServices  | norwayeast     | foundry           |
+| uk-foundry1                 | AIServices  | ukwest         | UK-foundry1       |
+
+## Networking
+### Virtual Networks (1 total)
+| Name        | Location       | Resource Group | Address Space | Subnets |
+|-------------|----------------|----------------|---------------|---------|
+| pippai-vnet | swedencentral  | pippai-rg      | 10.0.0.0/16   | 1       |
+
+### Network Security Groups (1 total)
+| Name       | Location       | Resource Group |
+|------------|----------------|----------------|
+| pippai-nsg | swedencentral  | pippai-rg      |
+
+### NSG Rules (Inbound Only)
+| Name       | Priority | Access | Protocol | Direction | Ports |
+|------------|----------|--------|----------|-----------|-------|
+| AllowSSH   | 100      | Allow  | Tcp      | Inbound   | 22    |
+| AllowHTTPS | 200      | Allow  | Tcp      | Inbound   | 443   |
+| AllowHTTP  | 300      | Allow  | Tcp      | Inbound   | 80    |
+
+Note: No outbound restrictions detected - default Azure outbound allows all

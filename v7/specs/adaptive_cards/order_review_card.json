@@ -1,0 +1,70 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "body": [
+    {
+      "type": "TextBlock",
+      "weight": "Bolder",
+      "size": "Large",
+      "text": "Draft Sales Order Preview"
+    },
+    {
+      "type": "TextBlock",
+      "text": "Case: ${caseId}",
+      "isSubtle": true,
+      "wrap": true
+    },
+    {
+      "type": "FactSet",
+      "facts": [
+        {
+          "title": "Customer",
+          "value": "${customerName}"
+        },
+        {
+          "title": "Line items",
+          "value": "${lineItemCount}"
+        },
+        {
+          "title": "Total (source)",
+          "value": "${totalSource}"
+        },
+        {
+          "title": "Total (Zoho pricing)",
+          "value": "${totalZoho}"
+        }
+      ]
+    },
+    {
+      "type": "TextBlock",
+      "text": "Warnings / Ambiguities",
+      "weight": "Bolder",
+      "spacing": "Medium"
+    },
+    {
+      "type": "TextBlock",
+      "text": "${warnings}",
+      "wrap": true,
+      "isSubtle": true
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.Submit",
+      "title": "Approve & Create Draft in Zoho",
+      "data": {
+        "action": "approve_create",
+        "caseId": "${caseId}"
+      }
+    },
+    {
+      "type": "Action.Submit",
+      "title": "Request Changes",
+      "data": {
+        "action": "request_changes",
+        "caseId": "${caseId}"
+      }
+    }
+  ]
+}

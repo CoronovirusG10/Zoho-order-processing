@@ -1,0 +1,75 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "${{BOT_APP_CLIENT_ID}}",
+  "packageName": "com.orderprocessing.teamsbot",
+  "developer": {
+    "name": "Order Processing Team",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "name": {
+    "short": "Order Processing",
+    "full": "Excel Order Processing Bot"
+  },
+  "description": {
+    "short": "Upload Excel orders to create Zoho drafts",
+    "full": "Upload Excel order files via personal chat. The bot validates data, uses AI to extract order information, resolves customers and items against Zoho Books, and creates Draft Sales Orders. Features include multilingual support (English/Farsi), intelligent schema inference, and full audit trails."
+  },
+  "icons": {
+    "outline": "outline.png",
+    "color": "color.png"
+  },
+  "accentColor": "#0078D4",
+  "bots": [
+    {
+      "botId": "${{BOT_APP_CLIENT_ID}}",
+      "scopes": ["personal"],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": ["personal"],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Show help and usage instructions"
+            },
+            {
+              "title": "status",
+              "description": "Check status of your recent orders"
+            },
+            {
+              "title": "cancel",
+              "description": "Cancel the current order processing"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "mycases",
+      "name": "My Cases",
+      "contentUrl": "${{TAB_CONTENT_URL}}/cases",
+      "scopes": ["personal"]
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "${{TAB_DOMAIN}}",
+    "${{API_DOMAIN}}"
+  ],
+  "webApplicationInfo": {
+    "id": "${{TAB_APP_CLIENT_ID}}",
+    "resource": "api://${{TAB_APP_CLIENT_ID}}"
+  },
+  "showLoadingIndicator": true,
+  "isFullScreen": false
+}

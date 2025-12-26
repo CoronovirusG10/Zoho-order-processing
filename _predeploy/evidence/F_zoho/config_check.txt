@@ -1,0 +1,72 @@
+Zoho Books Sandbox Configuration Check
+=======================================
+Audit Date: 2025-12-26
+Auditor: Subagent F (READ-ONLY)
+
+TOKEN FILE DISCOVERY
+--------------------
+Token file found: Yes
+Location: /data/order-processing/zoho_books_tokens-pippa sandbox.json
+File exists: Yes
+
+TOKEN FILE STRUCTURE (field names only, no values)
+--------------------------------------------------
+Fields present:
+  - region: Yes
+  - accounts_base: Yes
+  - api_base: Yes
+  - client_id: Yes
+  - client_secret: Yes
+  - scopes: Yes
+  - redirect_uri: Yes
+  - issued_at_unix: Yes
+  - access_token: Yes
+  - refresh_token: Yes
+  - scope: Yes
+  - api_domain: Yes
+  - token_type: Yes
+  - expires_in: Yes
+
+GITIGNORE STATUS
+----------------
+Root .gitignore: Not found at /data/order-processing/.gitignore
+App .gitignore: Found at /data/order-processing/app/.gitignore
+
+Relevant patterns in app/.gitignore:
+  - zoho_*.json (MATCHES token file)
+  - *_tokens*.json (MATCHES token file pattern)
+  - *credentials*.json
+  - *secret*.json
+  - oauth*.json
+
+Token file protection: PARTIAL
+  - The token file IS in the root directory
+  - The app/.gitignore patterns WOULD match if file were in app/
+  - Root .gitignore is MISSING - NEEDS_ACTION
+
+EU ENDPOINT CONFIGURATION
+-------------------------
+Configuration in token file:
+  - region: eu
+  - accounts_base: https://accounts.zoho.eu
+  - api_base: https://www.zohoapis.eu
+  - api_domain: https://www.zohoapis.eu
+
+Codebase references found:
+  - app/services/zoho/dist/auth/oauth-manager.js - EU endpoints configured
+  - app/tests/integration/*.ts - Using https://books.zoho.eu/api/v3
+  - app/tests/mocks/zoho-responses.ts - api_domain: https://www.zohoapis.eu
+  - app/docs/runbooks/zoho-outage.md - EU endpoints documented
+
+EU Endpoint Status: CONFIGURED CORRECTLY
+
+OAUTH MANAGER REGIONAL SUPPORT
+------------------------------
+From oauth-manager.js, supported regions:
+  - eu: https://www.zohoapis.eu
+  - com: https://www.zohoapis.com
+  - in: https://www.zohoapis.in
+  - au: https://www.zohoapis.com.au
+  - jp: https://www.zohoapis.jp
+
+Account base for EU: https://accounts.zoho.eu

@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "detected_language": "en",
+    "sheet_name": "Orders",
+    "header_row": 0,
+    "data_rows": 2,
+    "has_formulas": true,
+    "formula_cells": ["E5", "E6"]
+  },
+  "customer": {
+    "raw": {
+      "value": null,
+      "evidence": []
+    },
+    "resolved": {
+      "zohoCustomerId": null,
+      "confidence": 0.0
+    }
+  },
+  "lines": [],
+  "issues": [
+    {
+      "code": "FORMULAS_BLOCKED",
+      "severity": "block",
+      "message": "Spreadsheet contains formulas in data range",
+      "evidence": [
+        {
+          "sheet": "Orders",
+          "cell": "E5",
+          "raw_value": "=C5*D5"
+        },
+        {
+          "sheet": "Orders",
+          "cell": "E6",
+          "raw_value": "=C6*D6"
+        }
+      ],
+      "suggestedFix": "Export spreadsheet as values-only (no formulas)",
+      "requiresUserInput": true
+    }
+  ],
+  "status": "blocked"
+}

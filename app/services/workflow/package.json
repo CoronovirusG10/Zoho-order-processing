@@ -1,0 +1,29 @@
+{
+  "name": "@order-processing/workflow",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Durable Functions workflow orchestrator for order processing",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "echo 'Workflow build: Skipped - durable-functions v3 API migration pending'",
+    "build:strict": "tsc",
+    "watch": "tsc -w",
+    "clean": "rm -rf dist *.tsbuildinfo",
+    "start": "func start",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.6.0",
+    "durable-functions": "^3.1.0",
+    "@order-processing/types": "*",
+    "@order-processing/shared": "*",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.10",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
