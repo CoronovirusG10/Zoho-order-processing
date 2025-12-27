@@ -717,7 +717,7 @@ Since we're using the **existing pippai-vm**, VM-Only with Temporal is actually 
 2. **No Managed Database Costs**
    - PostgreSQL runs in Docker on the VM
    - Uses ~5GB of existing disk space
-   - No Azure Database for PostgreSQL required ($260/month saved)
+   - No need for Azure Database for PostgreSQL (Docker is sufficient for this workload)
    - **Verdict:** ✅ Cost justified
 
 3. **Performance Benefits**

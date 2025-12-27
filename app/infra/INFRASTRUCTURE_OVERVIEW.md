@@ -6,17 +6,28 @@ This infrastructure deployment creates a complete, production-ready Teams to Exc
 
 ## Architecture Diagram (Text)
 
+**Updated December 2025:** Bot registered in user tenant to avoid cross-tenant authentication issues.
+
 ```
 +-------------------------------------------------------------------------+
-|                          TENANT B (Teams Users)                          |
-|  +----------------+                                                      |
-|  | Teams Client   |----------------------+                               |
-|  +----------------+                      |                               |
-+------------------------------------------|---------------------------------+
-                                           |
-                                           v
+|              PIPPA OF LONDON TENANT (Users + Bot)                        |
+|              Tenant ID: 23da91a5-0480-4183-8bc1-d7b6dd33dd2e            |
+|                                                                          |
+|  +----------------+     +------------------+                             |
+|  | Teams Client   |     | Azure Bot        |                             |
+|  | (Salespeople)  |<--->| (Single-Tenant)  |---+                         |
+|  +----------------+     +------------------+   |                         |
+|                                                | Messaging Endpoint:     |
+|  +----------------+     +------------------+   | https://pippai-vm.      |
+|  | Teams App      |     | App Registration |   | 360innovate.com/        |
+|  | (Sideloaded)   |     | (Single-Tenant)  |   | api/messages            |
+|  +----------------+     +------------------+   |                         |
++------------------------------------------------|--------------------------+
+                                                 |
+                                                 v HTTPS
 +-------------------------------------------------------------------------+
-|                    TENANT A (Azure Hosting)                              |
+|              360INNOVATE TENANT (Infrastructure)                         |
+|              Tenant ID: 545acd6e-7392-4046-bc3e-d4656b7146dd            |
 |                      Sweden Central Region                               |
 |                                                                          |
 |  +-------------------------------------------------------------------+  |

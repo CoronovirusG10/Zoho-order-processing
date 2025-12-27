@@ -363,11 +363,11 @@ class ZohoImportClient {
   // Sales Order Operations (Draft only - no line items in export)
   // ===========================================================================
 
-  async createSalesOrderMinimal(order: ExportedSalesOrder, customerIdMap: Map<string, string>): Promise<{ salesorder_id: string } | null> {
-    // Map old customer_id to new customer_id
-    const newCustomerId = customerIdMap.get(order.customer_id);
+  async createSalesOrderMinimal(order: ExportedSalesOrder, customerNameMap: Map<string, string>): Promise<{ salesorder_id: string } | null> {
+    // Look up customer by name (since we're using name->ID mapping from sandbox)
+    const newCustomerId = customerNameMap.get(order.customer_name);
     if (!newCustomerId) {
-      console.log(`  [WARN] Customer ${order.customer_id} not found in mapping, skipping order ${order.salesorder_number}`);
+      console.log(`  [WARN] Customer "${order.customer_name}" not found in sandbox, skipping order ${order.salesorder_number}`);
       return null;
     }
 
@@ -401,11 +401,11 @@ class ZohoImportClient {
   // Invoice Operations (Draft only - no line items in export)
   // ===========================================================================
 
-  async createInvoiceMinimal(invoice: ExportedInvoice, customerIdMap: Map<string, string>): Promise<{ invoice_id: string } | null> {
-    // Map old customer_id to new customer_id
-    const newCustomerId = customerIdMap.get(invoice.customer_id);
+  async createInvoiceMinimal(invoice: ExportedInvoice, customerNameMap: Map<string, string>): Promise<{ invoice_id: string } | null> {
+    // Look up customer by name (since we're using name->ID mapping from sandbox)
+    const newCustomerId = customerNameMap.get(invoice.customer_name);
     if (!newCustomerId) {
-      console.log(`  [WARN] Customer ${invoice.customer_id} not found in mapping, skipping invoice ${invoice.invoice_number}`);
+      console.log(`  [WARN] Customer "${invoice.customer_name}" not found in sandbox, skipping invoice ${invoice.invoice_number}`);
       return null;
     }
 
@@ -446,6 +446,35 @@ async function loadJsonFile<T>(filename: string): Promise<T[]> {
   }
   const content = fs.readFileSync(filePath, 'utf-8');
   return JSON.parse(content);
+}
+
+/**
+ * Build a mapping of customer names to Zoho IDs by querying the sandbox
+ * This allows sales orders/invoices to be imported independently
+ */
+async function buildCustomerNameMap(client: ZohoImportClient): Promise<Map<string, string>> {
+  const nameToIdMap = new Map<string, string>();
+  let page = 1;
+  let hasMore = true;
+
+  while (hasMore) {
+    console.log(`  Fetching contacts page ${page}...`);
+    const contacts = await client.listContacts(page, 200);
+
+    if (contacts.length === 0) {
+      hasMore = false;
+    } else {
+      for (const contact of contacts) {
+        // Map by contact_name (which is what the export uses for customer_name)
+        nameToIdMap.set(contact.contact_name, contact.contact_id);
+      }
+      page++;
+      // Rate limit
+      await new Promise(resolve => setTimeout(resolve, CONFIG.RATE_LIMIT_DELAY_MS));
+    }
+  }
+
+  return nameToIdMap;
 }
 
 async function importCustomers(
@@ -492,10 +521,18 @@ async function importCustomers(
         console.log(`  -> Created with ID: ${created.contact_id}`);
       }
     } catch (error) {
-      result.failed++;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      result.errors.push({ id: customer.contact_id, error: errorMsg });
-      console.log(`  -> FAILED: ${errorMsg}`);
+      // Check if it's a duplicate error - treat as skip, not failure
+      if (errorMsg.includes('already exists')) {
+        result.skipped++;
+        console.log(`  -> SKIPPED (already exists)`);
+        // Still need to track a placeholder mapping for dependent entities
+        idMap.set(customer.contact_id, `existing-${customer.contact_id}`);
+      } else {
+        result.failed++;
+        result.errors.push({ id: customer.contact_id, error: errorMsg });
+        console.log(`  -> FAILED: ${errorMsg}`);
+      }
     }
   }
 
@@ -547,10 +584,17 @@ async function importProducts(
         console.log(`  -> Created with ID: ${created.item_id}`);
       }
     } catch (error) {
-      result.failed++;
       const errorMsg = error instanceof Error ? error.message : String(error);
-      result.errors.push({ id: product.item_id, error: errorMsg });
-      console.log(`  -> FAILED: ${errorMsg}`);
+      // Check if it's a duplicate error - treat as skip, not failure
+      if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
+        result.skipped++;
+        console.log(`  -> SKIPPED (already exists)`);
+        idMap.set(product.item_id, `existing-${product.item_id}`);
+      } else {
+        result.failed++;
+        result.errors.push({ id: product.item_id, error: errorMsg });
+        console.log(`  -> FAILED: ${errorMsg}`);
+      }
     }
   }
 
@@ -590,8 +634,8 @@ async function importSalesOrders(
     const progress = `[${i + 1}/${toImport.length}]`;
 
     try {
-      if (!customerIdMap.has(order.customer_id)) {
-        console.log(`${progress} SKIPPED: ${order.salesorder_number} - Customer not imported`);
+      if (!customerIdMap.has(order.customer_name)) {
+        console.log(`${progress} SKIPPED: ${order.salesorder_number} - Customer "${order.customer_name}" not in sandbox`);
         result.skipped++;
         continue;
       }
@@ -653,8 +697,8 @@ async function importInvoices(
     const progress = `[${i + 1}/${toImport.length}]`;
 
     try {
-      if (!customerIdMap.has(invoice.customer_id)) {
-        console.log(`${progress} SKIPPED: ${invoice.invoice_number} - Customer not imported`);
+      if (!customerIdMap.has(invoice.customer_name)) {
+        console.log(`${progress} SKIPPED: ${invoice.invoice_number} - Customer "${invoice.customer_name}" not in sandbox`);
         result.skipped++;
         continue;
       }
@@ -838,9 +882,9 @@ async function main(): Promise<void> {
     if (!entityFilter || entityFilter === 'salesorders') {
       // Need customer mapping for sales orders
       if (customerIdMap.size === 0 && !dryRun) {
-        console.log('\nLoading customer ID mapping from previous import...');
-        // For now, we'll skip if no customer mapping
-        console.log('WARN: Customer mapping not available. Run customers import first.');
+        console.log('\nBuilding customer name->ID mapping from Zoho sandbox...');
+        customerIdMap = await buildCustomerNameMap(client);
+        console.log(`  Loaded ${customerIdMap.size} customer mappings\n`);
       }
       const result = await importSalesOrders(client, customerIdMap, dryRun, limit);
       results.push(result);
@@ -848,7 +892,9 @@ async function main(): Promise<void> {
 
     if (!entityFilter || entityFilter === 'invoices') {
       if (customerIdMap.size === 0 && !dryRun) {
-        console.log('WARN: Customer mapping not available. Run customers import first.');
+        console.log('\nBuilding customer name->ID mapping from Zoho sandbox...');
+        customerIdMap = await buildCustomerNameMap(client);
+        console.log(`  Loaded ${customerIdMap.size} customer mappings\n`);
       }
       const result = await importInvoices(client, customerIdMap, dryRun, limit);
       results.push(result);

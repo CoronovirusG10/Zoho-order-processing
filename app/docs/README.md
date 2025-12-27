@@ -50,7 +50,7 @@ The Order Processing Application is a Teams-integrated system that enables sales
 |                                |                                                   |
 |                                v                                                   |
 |  +--------------------------------------------------------------------------------+|
-|  |                      Azure Durable Functions (Workflow)                        ||
+|  |                      Temporal.io (Workflow Orchestration)                      ||
 |  |  +----------+   +------------+   +-------------+   +------------+              ||
 |  |  | Parse    |-->| Committee  |-->|  Resolve    |-->|  Create    |              ||
 |  |  | Excel    |   |  Review    |   |  Entities   |   |  Draft     |              ||
@@ -101,7 +101,7 @@ The Order Processing Application is a Teams-integrated system that enables sales
 | **teams-tab** | `/services/teams-tab/` | React personal tab for case management |
 | **parser** | `/services/parser/` | Deterministic Excel parsing with evidence tracking |
 | **committee** | `/services/committee/` | 3-model AI committee for mapping validation |
-| **workflow** | `/services/workflow/` | Azure Durable Functions orchestrator |
+| **workflow** | `/services/workflow/` | Temporal.io workflow orchestrator |
 | **zoho** | `/services/zoho/` | Zoho Books API integration (OAuth, matching, drafts) |
 | **api** | `/services/api/` | REST API for tab and internal tools |
 | **storage** | `/services/storage/` | Azure Blob audit service |

@@ -85,8 +85,8 @@ sudo npm install -g pm2
 sudo apt install -y nginx
 
 # Create app directory
-sudo mkdir -p /opt/order-processing/workflow
-sudo chown -R $USER:$USER /opt/order-processing
+sudo mkdir -p /data/order-processing/workflow
+sudo chown -R $USER:$USER /data/order-processing
 ```
 
 ## Step 2: PostgreSQL Setup for Temporal
@@ -95,10 +95,10 @@ Create PostgreSQL container for Temporal persistence:
 
 ```bash
 # Create data directory
-mkdir -p /opt/order-processing/temporal/postgres-data
+mkdir -p /data/order-processing/temporal/postgres-data
 
 # Create docker-compose file
-cat > /opt/order-processing/temporal/docker-compose.yml << 'EOF'
+cat > /data/order-processing/temporal/docker-compose.yml << 'EOF'
 version: '3.8'
 
 services:
@@ -177,10 +177,10 @@ networks:
 EOF
 
 # Create dynamic config directory
-mkdir -p /opt/order-processing/temporal/dynamicconfig
+mkdir -p /data/order-processing/temporal/dynamicconfig
 
 # Create dynamic config file
-cat > /opt/order-processing/temporal/dynamicconfig/development.yaml << 'EOF'
+cat > /data/order-processing/temporal/dynamicconfig/development.yaml << 'EOF'
 # Temporal dynamic configuration
 system.forceSearchAttributesCacheRefreshOnRead:
   - value: true
@@ -191,8 +191,8 @@ frontend.enableUpdateWorkflowExecution:
 EOF
 
 # Create init script for visibility database
-mkdir -p /opt/order-processing/temporal/init-db
-cat > /opt/order-processing/temporal/init-db/init-visibility.sql << 'EOF'
+mkdir -p /data/order-processing/temporal/init-db
+cat > /data/order-processing/temporal/init-db/init-visibility.sql << 'EOF'
 -- Create visibility database for Temporal
 CREATE DATABASE temporal_visibility;
 GRANT ALL PRIVILEGES ON DATABASE temporal_visibility TO temporal;
@@ -202,7 +202,7 @@ EOF
 ## Step 3: Temporal Server Deployment
 
 ```bash
-cd /opt/order-processing/temporal
+cd /data/order-processing/temporal
 
 # Create .env file with secrets (get from Key Vault)
 cat > .env << 'EOF'
@@ -237,7 +237,7 @@ Deploy the workflow worker application:
 
 ```bash
 # Navigate to app directory
-cd /opt/order-processing/workflow
+cd /data/order-processing/workflow
 
 # Clone or copy application files
 # (In CI/CD, this would be done via git clone or artifact download)
@@ -255,7 +255,7 @@ npm run build
 Create PM2 configuration file:
 
 ```bash
-cat > /opt/order-processing/workflow/ecosystem.config.js << 'EOF'
+cat > /data/order-processing/workflow/ecosystem.config.js << 'EOF'
 module.exports = {
   apps: [
     {
@@ -322,17 +322,15 @@ sudo chown -R $USER:$USER /var/log/pm2
 Create environment configuration:
 
 ```bash
-cat > /opt/order-processing/workflow/.env << 'EOF'
+cat > /data/order-processing/workflow/.env << 'EOF'
 # Temporal Configuration
 TEMPORAL_ADDRESS=localhost:7233
 TEMPORAL_NAMESPACE=order-processing
 TEMPORAL_TASK_QUEUE=order-processing-queue
 
-# Service URLs
-PARSER_SERVICE_URL=https://op-parser-func.azurewebsites.net/api
-COMMITTEE_SERVICE_URL=https://op-committee-func.azurewebsites.net/api
-ZOHO_SERVICE_URL=https://op-zoho-func.azurewebsites.net/api
-TEAMS_BOT_SERVICE_URL=https://op-teams-bot.azurewebsites.net/api
+# Internal Service URLs (all services run on VM)
+# Parser, Committee, Zoho services are integrated into Temporal activities
+# No external Azure Functions - everything runs locally via PM2/Temporal
 
 # Azure Configuration
 COSMOS_ENDPOINT=https://your-cosmos.documents.azure.com:443/
@@ -352,7 +350,7 @@ WORKER_MAX_CONCURRENT_ACTIVITIES=50
 WORKER_MAX_CACHED_WORKFLOWS=500
 EOF
 
-chmod 600 /opt/order-processing/workflow/.env
+chmod 600 /data/order-processing/workflow/.env
 ```
 
 ## Step 6: nginx Configuration
@@ -437,7 +435,7 @@ sudo systemctl enable nginx
 
 ```bash
 # Navigate to workflow directory
-cd /opt/order-processing/workflow
+cd /data/order-processing/workflow
 
 # Start PM2 applications
 pm2 start ecosystem.config.js
@@ -451,7 +449,7 @@ pm2 startup systemd -u $USER --hp /home/$USER
 
 # Verify all services are running
 pm2 status
-docker-compose -f /opt/order-processing/temporal/docker-compose.yml ps
+docker-compose -f /data/order-processing/temporal/docker-compose.yml ps
 ```
 
 ## Step 8: Health Check Verification
@@ -548,7 +546,7 @@ ssh -L 8088:localhost:8088 user@vm-ip
 tail -f /var/log/pm2/*.log
 
 # View Docker logs
-docker-compose -f /opt/order-processing/temporal/docker-compose.yml logs -f
+docker-compose -f /data/order-processing/temporal/docker-compose.yml logs -f
 ```
 
 ## Step 10: CI/CD Configuration (GitHub Actions)
@@ -615,7 +613,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            cd /opt/order-processing/workflow
+            cd /data/order-processing/workflow
 
             # Backup current deployment
             if [ -d dist ]; then
@@ -645,7 +643,7 @@ jobs:
 ### Quick Rollback (PM2)
 
 ```bash
-cd /opt/order-processing/workflow
+cd /data/order-processing/workflow
 
 # List backups
 ls -la dist.backup.*
@@ -665,7 +663,7 @@ curl http://localhost:3000/health
 ### Temporal Server Rollback
 
 ```bash
-cd /opt/order-processing/temporal
+cd /data/order-processing/temporal
 
 # Stop services
 docker-compose down
@@ -698,7 +696,7 @@ fi
 echo "=== Rolling back to $BACKUP_DATE ==="
 
 # Stop worker
-cd /opt/order-processing/workflow
+cd /data/order-processing/workflow
 pm2 stop all
 
 # Restore application
@@ -758,7 +756,7 @@ Adjust PM2 instances in `ecosystem.config.js`:
 
 ### Temporal Tuning
 
-Edit `/opt/order-processing/temporal/dynamicconfig/development.yaml`:
+Edit `/data/order-processing/temporal/dynamicconfig/development.yaml`:
 
 ```yaml
 # Increase concurrent activities

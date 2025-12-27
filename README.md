@@ -411,10 +411,11 @@ CanonicalSalesOrder {
 ### Environment Variables
 
 ```bash
-# Azure Bot
-MICROSOFT_APP_ID=
-MICROSOFT_APP_PASSWORD=
-MICROSOFT_APP_TYPE=MultiTenant
+# Azure Bot (registered in Pippa of London tenant)
+MICROSOFT_APP_ID=<app-id-from-pippa-tenant>
+MICROSOFT_APP_PASSWORD=<secret-from-pippa-tenant>
+MICROSOFT_APP_TYPE=SingleTenant
+MICROSOFT_APP_TENANT_ID=23da91a5-0480-4183-8bc1-d7b6dd33dd2e
 
 # Azure AI Foundry
 AZURE_FOUNDRY_ENDPOINT=
@@ -593,20 +594,27 @@ docker-compose -f temporal-docker-compose.yml up -d
 
 ### Cross-Tenant Setup
 
-When Azure workload is in Tenant A and Teams users are in Tenant B:
+**Architecture Decision (December 2025):** Bot is registered in the USER tenant to avoid cross-tenant authentication issues (multi-tenant bot creation was deprecated July 2025).
 
-1. **Tenant A (Hosting)**
-   - Create multi-tenant app registrations (Bot + Tab/API)
-   - Deploy Azure resources
-   - Configure Azure Bot with Teams channel
+| Tenant | Purpose | Resources |
+|--------|---------|-----------|
+| **Pippa of London** (`23da91a5-...`) | Bot + Users | Azure Bot, App Registration, Teams App |
+| **360innovate** (`545acd6e-...`) | Infrastructure | VM, Cosmos DB, Storage, Key Vault |
 
-2. **Tenant B (Consumer)**
-   - Teams admin uploads custom app package
-   - Configure app permission policies
-   - Grant Entra consent for Tab/API app
-   - Assign app roles to users
+**Setup Steps:**
 
-See [CROSS_TENANT_TEAMS_DEPLOYMENT.md](CROSS_TENANT_TEAMS_DEPLOYMENT.md) for detailed instructions.
+1. **Pippa of London Tenant (antonio@pippaoflondon.co.uk)**
+   - Create single-tenant App Registration
+   - Create Azure Bot with messaging endpoint → `https://pippai-vm.360innovate.com/api/messages`
+   - Enable Teams channel
+   - Upload Teams app package
+
+2. **360innovate Tenant (DevOps)**
+   - Configure bot credentials on pippai-vm
+   - Deploy application code
+   - Configure SSL certificate
+
+See [docs/UNIFIED_DEPLOYMENT_PLAN.md](docs/UNIFIED_DEPLOYMENT_PLAN.md) for detailed instructions.
 
 ---
 
