@@ -4,6 +4,7 @@ services:
   postgresql:
     image: postgres:15-alpine
     container_name: temporal-postgresql
+    hostname: postgresql
     restart: unless-stopped
     environment:
       POSTGRES_USER: temporal
@@ -19,7 +20,9 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - temporal-network
+      temporal-network:
+        aliases:
+          - postgresql
 
   temporal:
     image: temporalio/auto-setup:latest
@@ -28,6 +31,10 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
+    links:
+      - postgresql
+    dns:
+      - 127.0.0.11
     environment:
       - DB=postgres12
       - DB_PORT=5432
@@ -44,7 +51,9 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - temporal-network
+      temporal-network:
+        aliases:
+          - temporal
 
   temporal-ui:
     image: temporalio/ui:latest
@@ -58,7 +67,9 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
     networks:
-      - temporal-network
+      temporal-network:
+        aliases:
+          - temporal-ui
 
 networks:
   temporal-network:

@@ -25,7 +25,7 @@ If `OP_RUN_ID` is not set, set it.
 |------|-------|
 | Pippa of London Tenant ID | 23da91a5-0480-4183-8bc1-d7b6dd33dd2e |
 | Admin Email | antonio@pippaoflondon.co.uk |
-| Bot Messaging Endpoint | https://pippai-vm.360innovate.com/api/messages |
+| Bot Messaging Endpoint | https://processing.pippaoflondon.co.uk/api/messages |
 | Bot Name | Pippa Order Bot |
 | Required Permissions | None (bot uses delegated user context) |
 
@@ -64,7 +64,7 @@ Step-by-step with Azure Portal navigation:
 If personal tab needs SSO authentication:
 1. Go to: App registration > Authentication
 2. Add platform: Single-page application
-3. Add redirect URI: `https://pippai-vm.360innovate.com/auth-end`
+3. Add redirect URI: `https://processing.pippaoflondon.co.uk/auth-end`
 4. Enable: Access tokens, ID tokens (implicit flow)
 5. Save changes
 
@@ -87,7 +87,7 @@ Step-by-step:
 ### Section 5: Configure Messaging Endpoint
 1. Go to the created Azure Bot resource
 2. Navigate to: Configuration
-3. Set Messaging endpoint: `https://pippai-vm.360innovate.com/api/messages`
+3. Set Messaging endpoint: `https://processing.pippaoflondon.co.uk/api/messages`
 4. Save
 
 ### Section 6: Enable Teams Channel
@@ -117,7 +117,7 @@ Credentials to transfer:
 - [ ] App is Single Tenant (not multi-tenant)
 - [ ] Client Secret created and securely stored
 - [ ] Azure Bot created in Pippa of London subscription
-- [ ] Messaging endpoint set to https://pippai-vm.360innovate.com/api/messages
+- [ ] Messaging endpoint set to https://processing.pippaoflondon.co.uk/api/messages
 - [ ] Teams channel enabled
 - [ ] Credentials securely transferred to DevOps team
 

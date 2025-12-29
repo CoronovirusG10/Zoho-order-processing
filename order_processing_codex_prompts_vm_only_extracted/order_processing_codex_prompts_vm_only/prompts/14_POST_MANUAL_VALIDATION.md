@@ -74,7 +74,7 @@ If `OP_RUN_ID` is not set, set it.
    - Expected: 405 (Method Not Allowed) - POST required
    - Or: 200/401/403 all indicate service is responding
 7) Verify external endpoint:
-   - `curl -s -o /dev/null -w "%{http_code}" https://pippai-vm.360innovate.com/api/messages`
+   - `curl -s -o /dev/null -w "%{http_code}" https://processing.pippaoflondon.co.uk/api/messages`
    - Same expectations as above
 8) Check pm2 logs for recent errors:
    - `pm2 logs teams-bot --lines 50 --nostream | grep -i error | tail -10`

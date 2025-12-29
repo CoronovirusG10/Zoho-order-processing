@@ -1,0 +1,178 @@
+# Azure MI Access Check Commands Log
+# Run ID: 20251229_195114
+# Generated: 2025-12-29T19:52:00Z
+
+# ============================================================
+# Step 1: Azure CLI Version Check
+# ============================================================
+$ az version
+{
+  "azure-cli": "2.81.0",
+  "azure-cli-core": "2.81.0",
+  "azure-cli-telemetry": "1.1.0",
+  "extensions": {
+    "account": "0.2.5",
+    "alertsmanagement": "1.0.0b2",
+    "application-insights": "1.2.3",
+    "bastion": "1.4.2",
+    "log-analytics": "1.0.0b1",
+    "ml": "2.40.1",
+    "monitor-control-service": "1.2.0",
+    "portal": "1.0.0b2",
+    "quota": "1.0.0",
+    "resource-graph": "2.1.1",
+    "scheduled-query": "1.0.0b1"
+  }
+}
+
+# ============================================================
+# Step 2: Managed Identity Login
+# ============================================================
+$ az login --identity
+[
+  {
+    "environmentName": "AzureCloud",
+    "homeTenantId": "545acd6e-7392-4046-bc3e-d4656b7146dd",
+    "id": "5bc1c173-058c-4d81-bed4-5610679d339f",
+    "isDefault": true,
+    "managedByTenants": [],
+    "name": "Azure subscription 1",
+    "state": "Enabled",
+    "tenantId": "545acd6e-7392-4046-bc3e-d4656b7146dd",
+    "user": {
+      "assignedIdentityInfo": "MSI",
+      "name": "systemAssignedIdentity",
+      "type": "servicePrincipal"
+    }
+  }
+]
+# RESULT: PASS - MSI login successful
+
+# ============================================================
+# Step 3: Account Show
+# ============================================================
+$ az account show -o jsonc
+{
+  "environmentName": "AzureCloud",
+  "homeTenantId": "545acd6e-7392-4046-bc3e-d4656b7146dd",
+  "id": "5bc1c173-058c-4d81-bed4-5610679d339f",
+  "isDefault": true,
+  "name": "Azure subscription 1",
+  "state": "Enabled",
+  "tenantId": "545acd6e-7392-4046-bc3e-d4656b7146dd",
+  "user": {
+    "assignedIdentityInfo": "MSI",
+    "name": "systemAssignedIdentity",
+    "type": "servicePrincipal"
+  }
+}
+# RESULT: PASS
+
+# ============================================================
+# Step 4: Resource Group Show
+# ============================================================
+$ az group show -n pippai-rg -o jsonc
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg",
+  "location": "swedencentral",
+  "name": "pippai-rg",
+  "properties": {
+    "provisioningState": "Succeeded"
+  }
+}
+# RESULT: PASS
+
+# ============================================================
+# Step 5: Key Vault Show
+# ============================================================
+$ az keyvault show -n pippai-keyvault-dev -g pippai-rg -o jsonc
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.KeyVault/vaults/pippai-keyvault-dev",
+  "location": "swedencentral",
+  "name": "pippai-keyvault-dev",
+  "properties": {
+    "vaultUri": "https://pippai-keyvault-dev.vault.azure.net/",
+    "sku": { "name": "standard" },
+    "enableRbacAuthorization": false,
+    "enableSoftDelete": true,
+    "softDeleteRetentionInDays": 90,
+    "provisioningState": "Succeeded"
+  }
+}
+# RESULT: PASS
+
+# ============================================================
+# Step 6: Storage Account Show
+# ============================================================
+$ az storage account show -n pippaistoragedev -g pippai-rg -o jsonc
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.Storage/storageAccounts/pippaistoragedev",
+  "location": "swedencentral",
+  "name": "pippaistoragedev",
+  "kind": "StorageV2",
+  "sku": { "name": "Standard_LRS", "tier": "Standard" },
+  "accessTier": "Hot",
+  "primaryEndpoints": {
+    "blob": "https://pippaistoragedev.blob.core.windows.net/"
+  },
+  "provisioningState": "Succeeded"
+}
+# RESULT: PASS
+
+# ============================================================
+# Step 7: Cosmos DB Show
+# ============================================================
+$ az cosmosdb show -n cosmos-visionarylab -g pippai-rg -o jsonc
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab",
+  "location": "Sweden Central",
+  "name": "cosmos-visionarylab",
+  "documentEndpoint": "https://cosmos-visionarylab.documents.azure.com:443/",
+  "capabilities": [{ "name": "EnableServerless" }],
+  "consistencyPolicy": { "defaultConsistencyLevel": "Session" },
+  "provisioningState": "Succeeded"
+}
+# RESULT: PASS
+
+# ============================================================
+# Step 8: Key Vault Secret List (Data Plane)
+# ============================================================
+$ az keyvault secret list --vault-name pippai-keyvault-dev -o table
+Name                                     Id                                                               Enabled
+---------------------------------------  --------------------------------------------------------------   -------
+Actual-anthropic-key                     https://pippai-keyvault-dev.vault.azure.net/secrets/...         True
+ANTHROPIC-API-KEY                        https://pippai-keyvault-dev.vault.azure.net/secrets/...         True
+[... 85 more secrets ...]
+# RESULT: PASS - 87 secrets listed (names only, no values)
+
+# ============================================================
+# Step 9: Storage Container List (Data Plane)
+# ============================================================
+$ az storage container list --account-name pippaistoragedev --auth-mode login -o table
+Name     Lease Status    Last Modified
+-------  --------------  -------------------------
+uploads                  2025-11-20T11:59:07+00:00
+# RESULT: PASS - Container listing successful via Azure AD auth
+
+# ============================================================
+# Step 10: Cosmos DB Database List (Control Plane)
+# ============================================================
+$ az cosmosdb sql database list --account-name cosmos-visionarylab -g pippai-rg -o table
+Name          ResourceGroup
+------------  ---------------
+visionarylab  pippai-rg
+# RESULT: PASS - Database listing successful
+
+# ============================================================
+# Summary
+# ============================================================
+# Azure CLI Version: 2.81.0 - PASS
+# MI Login: PASS
+# Resource Group: PASS
+# Key Vault (control): PASS
+# Key Vault (data): PASS
+# Storage (control): PASS
+# Storage (data): PASS
+# Cosmos DB (control): PASS
+
+# ALL CHECKS PASSED

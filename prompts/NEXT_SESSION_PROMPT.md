@@ -138,8 +138,8 @@ N) Write report + paste-back summary.
 
 | Item | Value |
 |------|-------|
-| VM Domain | pippai-vm.360innovate.com |
-| Bot Messaging Endpoint | https://pippai-vm.360innovate.com/api/messages |
+| VM Domain | processing.pippaoflondon.co.uk |
+| Bot Messaging Endpoint | https://processing.pippaoflondon.co.uk/api/messages |
 | 360innovate Tenant ID | 545acd6e-7392-4046-bc3e-d4656b7146dd |
 | Pippa of London Tenant ID | 23da91a5-0480-4183-8bc1-d7b6dd33dd2e |
 | Pippa Admin | antonio@pippaoflondon.co.uk |

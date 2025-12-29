@@ -173,7 +173,7 @@ MicrosoftAppTenantId=23da91a5-0480-4183-8bc1-d7b6dd33dd2e
    - Bot handle: `order-processing-bot`
    - Type: **Single Tenant**
    - Microsoft App ID: (use App Registration ID from step 1)
-   - Messaging endpoint: `https://pippai-vm.360innovate.com/api/messages`
+   - Messaging endpoint: `https://processing.pippaoflondon.co.uk/api/messages`
 
 3. **Configure Teams Channel**
    - Azure Bot > Channels > Microsoft Teams
@@ -214,13 +214,13 @@ MicrosoftAppTenantId=23da91a5-0480-4183-8bc1-d7b6dd33dd2e
 
 3. **Configure SSL**
    ```bash
-   sudo certbot --nginx -d pippai-vm.360innovate.com
+   sudo certbot --nginx -d processing.pippaoflondon.co.uk
    ```
 
 4. **Verify Health**
    ```bash
-   curl https://pippai-vm.360innovate.com/health
-   curl https://pippai-vm.360innovate.com/api/workflow/health
+   curl https://processing.pippaoflondon.co.uk/health
+   curl https://processing.pippaoflondon.co.uk/api/workflow/health
    ```
 
 ### Phase 3: Teams App Deployment (Pippa of London Tenant)
@@ -295,10 +295,10 @@ upstream temporal_ui {
 
 server {
     listen 443 ssl http2;
-    server_name pippai-vm.360innovate.com;
+    server_name processing.pippaoflondon.co.uk;
 
-    ssl_certificate /etc/letsencrypt/live/pippai-vm.360innovate.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/pippai-vm.360innovate.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/processing.pippaoflondon.co.uk/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/processing.pippaoflondon.co.uk/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
     # Security Headers
@@ -352,7 +352,7 @@ server {
 
 server {
     listen 80;
-    server_name pippai-vm.360innovate.com;
+    server_name processing.pippaoflondon.co.uk;
     return 301 https://$server_name$request_uri;
 }
 ```
@@ -443,7 +443,7 @@ module.exports = {
 - [ ] Azure Bot created in Pippa of London tenant
 - [ ] Teams channel enabled on Azure Bot
 - [ ] App ID and secret copied to Key Vault
-- [ ] DNS A record for `pippai-vm.360innovate.com` → `135.225.31.54`
+- [ ] DNS A record for `processing.pippaoflondon.co.uk` → `135.225.31.54`
 
 ### Deployment
 

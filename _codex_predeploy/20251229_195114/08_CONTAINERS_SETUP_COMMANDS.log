@@ -1,0 +1,520 @@
+# Container Setup Commands Log
+# Run ID: 20251229_195114
+# Started: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+=== Azure Account Verification ===
+Logged at: 2025-12-29T20:14:37Z
+{
+  "name": "Azure subscription 1",
+  "subscriptionId": "5bc1c173-058c-4d81-bed4-5610679d339f",
+  "user": "servicePrincipal"
+}
+
+=== Cosmos DB Database Check === az cosmosdb sql database show --account-name cosmos-visionarylab -g pippai-rg -n visionarylab -o json
+
+=== Cosmos DB Database Check === az cosmosdb sql database show --account-name cosmos-visionarylab -g pippai-rg -n visionarylab -o json
+
+=== Cosmos DB Container Operations ===
+
+=== Cosmos DB Container Operations ===
+
+--- Checking container: cases ---
+Creating cases...
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/cases",
+  "location": null,
+  "name": "cases",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6AKYVk88=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00007d09-0000-4700-0000-6952e1640000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "cases",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/tenantId"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6AKYVk88=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039332.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+--- Checking container: fingerprints ---
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/fingerprints",
+  "location": null,
+  "name": "fingerprints",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6APwNJ00=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00008209-0000-4700-0000-6952e18c0000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "fingerprints",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/fingerprint"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6APwNJ00=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039372.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+--- Checking container: events ---
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/events",
+  "location": null,
+  "name": "events",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6APNyv-M=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00008709-0000-4700-0000-6952e1b50000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "events",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/caseId"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6APNyv-M=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039413.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+--- Checking container: agentThreads ---
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/agentThreads",
+  "location": null,
+  "name": "agentThreads",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6AJyLiho=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00008c09-0000-4700-0000-6952e1de0000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "agentThreads",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/threadId"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6AJyLiho=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039454.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+--- Checking container: committeeVotes ---
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/committeeVotes",
+  "location": null,
+  "name": "committeeVotes",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6ALt-pEA=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00009109-0000-4700-0000-6952e2060000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "committeeVotes",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/caseId"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6ALt-pEA=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039494.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+--- Checking container: cache ---
+{
+  "id": "/subscriptions/5bc1c173-058c-4d81-bed4-5610679d339f/resourceGroups/pippai-rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-visionarylab/sqlDatabases/visionarylab/containers/cache",
+  "location": null,
+  "name": "cache",
+  "options": null,
+  "resource": {
+    "_conflicts": "conflicts/",
+    "_docs": "docs/",
+    "_self": "dbs/J0M6AA==/colls/J0M6AO6g9sI=/",
+    "_sprocs": "sprocs/",
+    "_triggers": "triggers/",
+    "_udfs": "udfs/",
+    "analyticalStorageTtl": null,
+    "clientEncryptionPolicy": null,
+    "computedProperties": [],
+    "conflictResolutionPolicy": {
+      "conflictResolutionPath": "/_ts",
+      "conflictResolutionProcedure": "",
+      "mode": "LastWriterWins"
+    },
+    "createMode": null,
+    "defaultTtl": null,
+    "etag": "\"00009609-0000-4700-0000-6952e22e0000\"",
+    "fullTextPolicy": null,
+    "geospatialConfig": {
+      "type": "Geography"
+    },
+    "id": "cache",
+    "indexingPolicy": {
+      "automatic": true,
+      "compositeIndexes": null,
+      "excludedPaths": [
+        {
+          "path": "/\"_etag\"/?"
+        }
+      ],
+      "fullTextIndexes": [],
+      "includedPaths": [
+        {
+          "indexes": null,
+          "path": "/*"
+        }
+      ],
+      "indexingMode": "consistent",
+      "spatialIndexes": null,
+      "vectorIndexes": null
+    },
+    "partitionKey": {
+      "kind": "Hash",
+      "paths": [
+        "/type"
+      ],
+      "systemKey": null,
+      "version": null
+    },
+    "restoreParameters": null,
+    "rid": "J0M6AO6g9sI=",
+    "statistics": [
+      {
+        "documentCount": 0,
+        "id": "0",
+        "partitionKeys": [],
+        "sampledDistinctPartitionKeyCount": 0,
+        "sizeInKB": 0
+      }
+    ],
+    "ts": 1767039534.0,
+    "uniqueKeyPolicy": {
+      "uniqueKeys": []
+    },
+    "vectorEmbeddingPolicy": null
+  },
+  "resourceGroup": "pippai-rg",
+  "tags": null,
+  "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers"
+}
+
+=== Cosmos DB Container List === az cosmosdb sql container list --account-name cosmos-visionarylab -g pippai-rg -d visionarylab -o table
+
+=== Blob Storage Container Operations ===
+
+--- Checking blob container: orders-incoming ---
+
+--- Checking blob container: orders-audit ---
+
+--- Checking blob container: committee-evidence ---
+
+--- Checking blob container: logs-archive ---
+
+=== Blob Container List === az storage container list --account-name pippaistoragedev --auth-mode login --query [].name -o table
+
+=== Temporal Namespace Operations ===
+Checking namespace order-processing...
+
+=== Temporal Namespace Check ===
+
+=== Temporal Namespace Status ===
+SKIPPED: Temporal server is unhealthy
+- Docker status: temporal-server is running but unhealthy
+- Issue: Cannot resolve PostgreSQL hostname within container
+- Logs show: "nc: bad address 'postgresql'"
+- The namespace registration will need to be done after Temporal is properly configured.
+
+Note: Temporal server requires docker-compose network configuration fix to resolve 'postgresql' hostname.
+
+=== Setup Complete ===
+Timestamp: 2025-12-29T20:22:49Z
+Status: PARTIAL SUCCESS

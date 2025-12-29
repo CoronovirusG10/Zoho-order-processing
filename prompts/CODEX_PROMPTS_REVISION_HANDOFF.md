@@ -100,7 +100,7 @@ Azure Bot resource creation & Teams channel wiring (in Pippa of London subscript
 
 #### 09_SSL_PROVISIONING.md
 
-**Purpose:** Provision SSL certificate for pippai-vm.360innovate.com
+**Purpose:** Provision SSL certificate for processing.pippaoflondon.co.uk
 
 **Scope:**
 - Check if valid certificate exists
@@ -139,7 +139,7 @@ Azure Bot resource creation & Teams channel wiring (in Pippa of London subscript
 - **NEW:** Tab SSO configuration if needed (redirect URIs, implicit flow)
 - Azure Bot resource creation steps
 - Teams channel configuration
-- Copy-paste values (messaging endpoint: `https://pippai-vm.360innovate.com/api/messages`)
+- Copy-paste values (messaging endpoint: `https://processing.pippaoflondon.co.uk/api/messages`)
 - **NEW:** Secure credential transfer instructions (use Key Vault, not email)
 - Instructions to send credentials to DevOps team
 - Expected outcomes at each step
@@ -297,7 +297,7 @@ After all prompts complete successfully:
 3. [ ] All PM2 processes running (workflow-api, workflow-worker, teams-bot)
 4. [ ] All Cosmos containers created with correct partition keys
 5. [ ] All Blob containers created with retention policies
-6. [ ] Valid SSL certificate for pippai-vm.360innovate.com
+6. [ ] Valid SSL certificate for processing.pippaoflondon.co.uk
 7. [ ] SSL renewal cron job active
 8. [ ] Bot credentials (MicrosoftAppId, MicrosoftAppPassword) in .env
 9. [ ] Bot service can obtain Microsoft token

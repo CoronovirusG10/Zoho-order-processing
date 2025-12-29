@@ -18,7 +18,7 @@ You are helping Antonio, the admin of the **Pippa of London** Microsoft 365 tena
 | Tenant Name | Pippa of London |
 | Tenant ID | 23da91a5-0480-4183-8bc1-d7b6dd33dd2e |
 | Admin | antonio@pippaoflondon.co.uk |
-| Bot Messaging Endpoint | https://pippai-vm.360innovate.com/api/messages |
+| Bot Messaging Endpoint | https://processing.pippaoflondon.co.uk/api/messages |
 
 ## Prerequisites
 
@@ -135,7 +135,7 @@ az bot create \
   --app-type "SingleTenant" \
   --appid "${MICROSOFT_APP_ID}" \
   --tenant-id "23da91a5-0480-4183-8bc1-d7b6dd33dd2e" \
-  --endpoint "https://pippai-vm.360innovate.com/api/messages" \
+  --endpoint "https://processing.pippaoflondon.co.uk/api/messages" \
   --location "global"
 ```
 
@@ -176,7 +176,7 @@ az bot show \
 ```
 
 **Verify:**
-- ✅ Endpoint is: `https://pippai-vm.360innovate.com/api/messages`
+- ✅ Endpoint is: `https://processing.pippaoflondon.co.uk/api/messages`
 - ✅ App ID matches your MICROSOFT_APP_ID
 - ✅ Teams channel is enabled
 
@@ -250,7 +250,7 @@ Bot registration completed in Pippa of London tenant.
 App Registration: Pippa-Order-Bot
 Azure Bot: pippa-order-bot
 Resource Group: pippa-bot-rg
-Messaging Endpoint: https://pippai-vm.360innovate.com/api/messages
+Messaging Endpoint: https://processing.pippaoflondon.co.uk/api/messages
 Teams Channel: Enabled
 
 Credentials have been:
@@ -271,7 +271,7 @@ Before notifying DevOps, verify:
 - [ ] Client Secret created (24 month expiry)
 - [ ] Service Principal created
 - [ ] Azure Bot resource created
-- [ ] Messaging endpoint set to `https://pippai-vm.360innovate.com/api/messages`
+- [ ] Messaging endpoint set to `https://processing.pippaoflondon.co.uk/api/messages`
 - [ ] Microsoft Teams channel enabled
 - [ ] Credentials securely transferred
 
@@ -319,7 +319,7 @@ If CLI doesn't work, use Azure Portal:
    - Bot handle: `pippa-order-bot`
    - Type: **Single Tenant**
    - App ID: paste from step 3
-   - Messaging endpoint: `https://pippai-vm.360innovate.com/api/messages`
+   - Messaging endpoint: `https://processing.pippaoflondon.co.uk/api/messages`
 5. **Enable Teams:**
    - Go to bot → Channels → Microsoft Teams → Save
 

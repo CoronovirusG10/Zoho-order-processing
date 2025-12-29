@@ -1,0 +1,56 @@
+=== Zoho Sandbox Smoke Test ===
+Started: 2025-12-29T20:30:47Z
+
+Configuration:
+  Region: eu
+  API Base: https://www.zohoapis.eu
+  Accounts Base: https://accounts.zoho.eu
+  Client ID: 1000.WV2GEEBI3BUVXNM...
+  Organization ID: 20111340673
+
+=== EU Endpoint Validation ===
+PASS: API base uses EU endpoint
+
+=== Token Status ===
+  Has access_token: YES (length: 70)
+  Has refresh_token: YES
+  Issued at: 1767040208
+  Expires in: 3600 seconds
+
+=== API Connectivity Tests ===
+
+Testing: Organizations
+  URL: https://www.zohoapis.eu/books/v3/organizations
+  HTTP Status: 200
+  Latency: 0.605988s
+  Zoho Error Code: 0
+  Zoho Error Message: success
+
+Testing: Items (per_page=1)
+  URL: https://www.zohoapis.eu/books/v3/items?organization_id=20111340673&per_page=1
+  HTTP Status: 200
+  Latency: 0.307935s
+  Zoho Error Code: 0
+  Zoho Error Message: success
+
+Testing: Customers (per_page=1)
+  URL: https://www.zohoapis.eu/books/v3/contacts?organization_id=20111340673&contact_type=customer&per_page=1
+  HTTP Status: 200
+  Latency: 0.268640s
+  Zoho Error Code: 0
+  Zoho Error Message: success
+
+Testing: Sales Orders (per_page=1)
+  URL: https://www.zohoapis.eu/books/v3/salesorders?organization_id=20111340673&per_page=1
+  HTTP Status: 200
+  Latency: 0.290505s
+  Zoho Error Code: 0
+  Zoho Error Message: success
+
+=== Test Summary ===
+  Organizations: PASS
+  Items: PASS
+  Customers: PASS
+  Sales Orders: PASS
+
+Completed: 2025-12-29T20:30:49Z

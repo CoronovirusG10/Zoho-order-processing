@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "zen": {
+      "type": "sse",
+      "url": "https://chat.pippaoflondon.co.uk/zen/sse"
+    }
+  }
+}

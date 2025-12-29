@@ -46,8 +46,8 @@ If `OP_RUN_ID` is not set, set it.
    - reload nginx if needed
 6) Health checks:
    - `curl -fsS http://127.0.0.1:3000/health`
-   - `curl -fsS https://pippai-vm.360innovate.com/health || true`
-   - `curl -fsS https://pippai-vm.360innovate.com/temporal/ | head || true`
+   - `curl -fsS https://processing.pippaoflondon.co.uk/health || true`
+   - `curl -fsS https://processing.pippaoflondon.co.uk/temporal/ | head || true`
 7) Write report with pass/fail and next actions.
 
 Finally print Paste‑Back Report block.

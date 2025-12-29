@@ -1,0 +1,101 @@
+=== Foundry Model Smoke Tests ===
+Run ID: 20251229_195114
+Timestamp: 2025-12-29T20:29:00Z
+
+=== Configuration Check ===
+Zen MCP Server: http://localhost:8959
+Zen MCP Status: OK (v10.0.0, 19 tools)
+Configured Providers: 4 (Google Gemini, Azure OpenAI, X.AI Grok, Anthropic Claude)
+
+=== Environment Variables (Redacted) ===
+GOOGLE_API_KEY=***REDACTED***
+(Azure OpenAI configured via Zen MCP)
+(Anthropic configured via Zen MCP)
+(X.AI configured via Zen MCP)
+
+=== Model Smoke Tests ===
+
+--- Orchestrator Models ---
+[2025-12-29T20:28:45Z] gpt-5.1 (Azure OpenAI)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status": "ok", "model": "gpt-5.1", "test": "smoke"}
+  JSON Valid: YES
+
+[2025-12-29T20:28:50Z] gpt-5.2 (Azure OpenAI)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status":"ok","model":"gpt-5.2","test":"smoke"}
+  JSON Valid: YES
+
+--- Committee Models ---
+[2025-12-29T20:28:47Z] o3 (Azure OpenAI)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status": "ok", "model": "o3", "test": "smoke"}
+  JSON Valid: YES
+
+[2025-12-29T20:28:49Z] claude-opus-4-5-20251101 (Anthropic)
+  Command: Zen MCP chat with JSON response test
+  Result: FAIL
+  Error: Streaming is required for operations that may take longer than 10 minutes
+  Note: Anthropic API configuration issue - streaming mode required
+
+[2025-12-29T20:28:51Z] claude-sonnet-4-20250514 (Anthropic)
+  Command: Zen MCP chat with JSON response test
+  Result: FAIL
+  Error: Streaming is required for operations that may take longer than 10 minutes
+  Note: Same Anthropic API configuration issue
+
+[2025-12-29T20:28:52Z] DeepSeek-V3.2 (Azure OpenAI)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status": "ok", "model": "DeepSeek-V3.2", "test": "smoke"}
+  JSON Valid: YES
+
+[2025-12-29T20:28:55Z] gemini-2.5-pro (Google)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status": "ok", "model": "gemini-2.5-pro", "test": "smoke"}
+  JSON Valid: YES
+
+[2025-12-29T20:28:58Z] grok-4-fast-reasoning (X.AI)
+  Command: Zen MCP chat with JSON response test
+  Result: PASS
+  Response: {"status": "ok", "model": "grok-4-fast-reasoning", "test": "smoke"}
+  JSON Valid: YES
+
+--- Additional Models Tested ---
+[2025-12-29T20:29:02Z] kimi-k2-thinking (Azure/MoonshotAI)
+  Result: PASS
+  JSON Valid: YES
+
+[2025-12-29T20:29:05Z] deepseek-r1-0528 (Azure)
+  Result: PASS
+  JSON Valid: YES
+
+[2025-12-29T20:29:08Z] codestral-2501 (Azure/Mistral)
+  Result: PASS
+  JSON Valid: YES
+
+[2025-12-29T20:29:10Z] llama-4-scout (Azure/Meta)
+  Result: PASS
+  JSON Valid: YES
+
+--- Embedding Models ---
+Cohere-embed-v3-multilingual: DEPLOYED (per MODEL_ACCESS_REPORT_2025-12-20.md)
+  Status: Available in Azure AI Foundry
+  Capacity: 1 unit
+  Note: Critical for Farsi header processing
+  Direct test: Not performed (embedding API requires separate endpoint configuration)
+
+--- Document OCR ---
+mistral-document-ai-2505: DEPLOYED (per MODEL_ACCESS_REPORT_2025-12-20.md)
+  Status: Available in Azure AI Foundry
+  Note: Optional unless image pipeline enabled
+
+=== Summary ===
+Models Tested: 12
+Passed: 10
+Failed: 2 (Anthropic Claude models - streaming configuration issue)
+JSON Validation: All successful responses returned valid JSON

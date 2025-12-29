@@ -4,7 +4,7 @@ This directory contains prompts for deploying and verifying the Order Processing
 
 ## Overview
 
-These prompts are designed to be run by Codex on the target VM (pippai-vm.360innovate.com) to automate deployment verification and configuration tasks.
+These prompts are designed to be run by Codex on the target VM (processing.pippaoflondon.co.uk) to automate deployment verification and configuration tasks.
 
 ## Two-Tenant Architecture
 
@@ -161,8 +161,8 @@ Where `OP_RUN_ID` is a UTC timestamp set at the start of the run.
 
 | Component | Value |
 |-----------|-------|
-| VM Domain | pippai-vm.360innovate.com |
-| Bot Messaging Endpoint | https://pippai-vm.360innovate.com/api/messages |
+| VM Domain | processing.pippaoflondon.co.uk |
+| Bot Messaging Endpoint | https://processing.pippaoflondon.co.uk/api/messages |
 | Temporal Namespace | order-processing |
 | Key Vault | pippai-keyvault-dev |
 | Storage Account | pippaistoragedev |

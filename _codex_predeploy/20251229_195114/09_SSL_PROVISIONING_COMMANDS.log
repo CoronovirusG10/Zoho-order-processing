@@ -1,0 +1,113 @@
+# SSL Provisioning Commands Log
+# Generated: 2025-12-29 19:52 UTC
+# Run ID: 20251229_195114
+
+# ============================================
+# 1. Verify Nginx Status
+# ============================================
+$ which nginx
+/usr/sbin/nginx
+
+$ systemctl is-active nginx
+active
+
+$ nginx -V 2>&1 | head -1
+nginx version: nginx/1.28.0
+
+# ============================================
+# 2. Check DNS Resolution
+# ============================================
+$ dig +short pippai-vm.360innovate.com
+(no output - NXDOMAIN)
+
+$ host pippai-vm.360innovate.com
+Host pippai-vm.360innovate.com not found: 3(NXDOMAIN)
+
+$ nslookup pippai-vm.360innovate.com
+Server:		127.0.0.53
+Address:	127.0.0.53#53
+** server can't find pippai-vm.360innovate.com: NXDOMAIN
+
+# ============================================
+# 3. Get VM Public IP
+# ============================================
+$ curl -s ifconfig.me
+135.225.31.54
+
+# ============================================
+# 4. Check Existing Certificates
+# ============================================
+$ sudo certbot certificates
+
+Found the following certs:
+  Certificate Name: chat.pippaoflondon.co.uk
+    Domains: chat.pippaoflondon.co.uk
+    Expiry Date: 2026-02-22 07:39:32+00:00 (VALID: 54 days)
+    Certificate Path: /etc/letsencrypt/live/chat.pippaoflondon.co.uk/fullchain.pem
+
+  Certificate Name: mcp.pippaoflondon.co.uk
+    Domains: mcp.pippaoflondon.co.uk
+    Expiry Date: 2026-03-03 19:27:04+00:00 (VALID: 63 days)
+    Certificate Path: /etc/letsencrypt/live/mcp.pippaoflondon.co.uk/fullchain.pem
+
+  Certificate Name: pinbox.pippaoflondon.co.uk
+    Domains: pinbox.pippaoflondon.co.uk
+    Expiry Date: 2026-02-27 22:59:03+00:00 (VALID: 60 days)
+    Certificate Path: /etc/letsencrypt/live/pinbox.pippaoflondon.co.uk/fullchain.pem
+
+  Certificate Name: pinboxir.pippaoflondon.co.uk
+    Domains: pinboxir.pippaoflondon.co.uk
+    Expiry Date: 2026-02-28 17:01:40+00:00 (VALID: 60 days)
+    Certificate Path: /etc/letsencrypt/live/pinboxir.pippaoflondon.co.uk/fullchain.pem
+
+# NOTE: No certificate found for pippai-vm.360innovate.com
+
+# ============================================
+# 5. Check Certbot Version
+# ============================================
+$ which certbot
+/home/azureuser/.local/bin/certbot
+
+$ certbot --version
+certbot 5.2.2
+
+# ============================================
+# 6. Check Renewal Mechanism
+# ============================================
+$ systemctl list-timers | grep certbot
+Tue 2025-12-30 10:02:13 UTC 13h left  Mon 2025-12-29 12:43:45 UTC 7h ago  certbot.timer  certbot.service
+
+$ cat /etc/cron.d/certbot
+# Upstream recommends attempting renewal twice a day
+# Note: systemd timer takes precedence when running systemd
+0 */12 * * * root test -x /usr/bin/certbot -a \! -d /run/systemd/system && perl -e 'sleep int(rand(43200))' && certbot -q renew
+
+# ============================================
+# 7. Test Renewal Dry-Run
+# ============================================
+$ sudo certbot renew --dry-run
+
+Congratulations, all simulated renewals succeeded:
+  /etc/letsencrypt/live/chat.pippaoflondon.co.uk/fullchain.pem (success)
+  /etc/letsencrypt/live/mcp.pippaoflondon.co.uk/fullchain.pem (success)
+  /etc/letsencrypt/live/pinbox.pippaoflondon.co.uk/fullchain.pem (success)
+  /etc/letsencrypt/live/pinboxir.pippaoflondon.co.uk/fullchain.pem (success)
+
+# ============================================
+# 8. Nginx Sites Enabled
+# ============================================
+$ ls -la /etc/nginx/sites-enabled/
+chatwoot
+chatwoot.bak
+librechat
+mcp-server -> /etc/nginx/sites-available/mcp-server
+pinboxir -> /etc/nginx/sites-available/pinboxir
+widget-test
+zoho-audit -> /etc/nginx/sites-available/zoho-audit
+
+# ============================================
+# CONCLUSION
+# ============================================
+# Certificate for pippai-vm.360innovate.com NOT provisioned
+# Reason: DNS record does not exist (NXDOMAIN)
+# Required: Create DNS A record pointing to 135.225.31.54

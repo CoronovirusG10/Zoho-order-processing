@@ -29,7 +29,7 @@ If `OP_RUN_ID` is not set, set it.
 | Azure Bot | Dev registration | Prod registration (may be same) |
 | Key Vault | pippai-keyvault-dev | pippai-keyvault-prod (TBD) |
 | Storage | pippaistoragedev | pippaistorageprod (TBD) |
-| Domain | pippai-vm.360innovate.com | (same or prod subdomain) |
+| Domain | processing.pippaoflondon.co.uk | (same or prod subdomain) |
 
 ## Steps
 1) Setup logging helper.

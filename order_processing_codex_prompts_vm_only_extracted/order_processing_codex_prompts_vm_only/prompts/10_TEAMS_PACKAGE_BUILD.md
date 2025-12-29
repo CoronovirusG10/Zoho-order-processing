@@ -29,7 +29,7 @@ If `OP_RUN_ID` is not set, set it.
 The manifest must include:
 - Bot with personal scope
 - Personal tab for "My Cases" and "Manager View"
-- Messaging endpoint: `https://pippai-vm.360innovate.com/api/messages`
+- Messaging endpoint: `https://processing.pippaoflondon.co.uk/api/messages`
 - File upload support enabled
 
 ## Steps

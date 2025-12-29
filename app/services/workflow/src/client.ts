@@ -198,13 +198,12 @@ export async function getWorkflowStatus(workflowId: string): Promise<{
  */
 export async function queryWorkflow<T>(
   workflowId: string,
-  queryName: string,
-  ...args: unknown[]
+  queryName: string
 ): Promise<T> {
   const temporalClient = await getTemporalClient();
   const handle = temporalClient.workflow.getHandle(workflowId);
 
-  return handle.query<T>(queryName, ...args);
+  return handle.query<T>(queryName);
 }
 
 /**

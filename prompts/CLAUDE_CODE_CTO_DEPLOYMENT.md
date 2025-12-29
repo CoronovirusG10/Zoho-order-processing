@@ -165,7 +165,7 @@ Task Agent 3:
 
    Execute:
    1. Verify nginx is running
-   2. Check DNS resolution for pippai-vm.360innovate.com
+   2. Check DNS resolution for processing.pippaoflondon.co.uk
    3. Check existing certificate status
    4. Run certbot if needed
    5. Verify renewal cron job

@@ -605,7 +605,7 @@ docker-compose -f temporal-docker-compose.yml up -d
 
 1. **Pippa of London Tenant (antonio@pippaoflondon.co.uk)**
    - Create single-tenant App Registration
-   - Create Azure Bot with messaging endpoint → `https://pippai-vm.360innovate.com/api/messages`
+   - Create Azure Bot with messaging endpoint → `https://processing.pippaoflondon.co.uk/api/messages`
    - Enable Teams channel
    - Upload Teams app package
 

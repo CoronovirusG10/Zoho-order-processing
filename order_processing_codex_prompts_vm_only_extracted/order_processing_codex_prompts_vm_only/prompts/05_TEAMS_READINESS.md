@@ -25,7 +25,7 @@ If `OP_RUN_ID` is not set, set it.
    - find manifest: `find . -maxdepth 6 -type f -name 'manifest.json' -o -name '*appPackage*' | sort`
    - locate icons
 3) Validate manifest content matches your VM ingress:
-   - messaging endpoint must be `https://pippai-vm.360innovate.com/api/messages`
+   - messaging endpoint must be `https://processing.pippaoflondon.co.uk/api/messages`
    - personal scope bot enabled
    - file upload support enabled if expected
    - tab present (personal tab)

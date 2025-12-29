@@ -1,0 +1,60 @@
+# VM Foundation Commands Log - Mon Dec 29 19:52:02 UTC 2025
+
+=== STEP 2: Validate Prerequisites ===
+Mon Dec 29 19:52:11 UTC 2025: Checking docker...
+
+=== STEP 2: Validate Prerequisites ===
+Docker: Docker version 29.0.2, build 8108357
+Docker Compose: Docker Compose version v2.40.3
+PM2: 6.0.14 (installed during this run)
+nginx: nginx/1.28.0
+
+=== STEP 3: Temporal Stack ===
+Mon Dec 29 19:53:23 UTC 2025: Starting Temporal stack...
+
+Temporal stack status:
+- temporal-postgresql: UP (healthy), port 127.0.0.1:5432
+- temporal-server: UP (health: starting), port 127.0.0.1:7233
+- temporal-ui: UP (no port binding - port 8080 conflict with pippai-help container)
+
+Note: Port 8080 is used by pippai-help container (nginx:alpine).
+Temporal UI can be accessed via nginx proxy at /temporal/ path.
+
+=== STEP 4: PM2 Stack ===
+Mon Dec 29 19:58:43 UTC 2025: Starting PM2 services...
+
+PM2 Stack Status:
+- workflow-api (2 instances): ONLINE on port 3005
+- workflow-worker (2 instances): ERRORED - Cannot connect to Temporal server (DNS resolution issue in Docker)
+- teams-bot (1 instance): ERRORED - Missing MICROSOFT_APP_ID/MICROSOFT_APP_PASSWORD environment variables
+
+Note: workflow-api is healthy and running
+Note: workflow-worker fails due to Temporal DNS resolution issue in auto-setup container
+Note: teams-bot requires environment configuration
+
+=== STEP 5: nginx ===
+
+nginx Configuration Test: PASS (with warnings about deprecated http2 directives)
+Expected proxy rules NOT CONFIGURED:
+- /api/messages -> localhost:3978 (teams-bot) - NOT FOUND
+- /api/* -> localhost:3000 (workflow-api is on 3005) - NOT FOUND
+- /temporal/ -> localhost:8080 (blocked by pippai-help container) - NOT FOUND
+- /health -> localhost:3000/health - NOT FOUND
+
+=== STEP 6: Health Checks ===
+- workflow-api health (http://127.0.0.1:3005/health): UNHEALTHY (Temporal disconnected - 503)
+- External health (https://pippai-vm.360innovate.com/health): FAILED (DNS not resolving)
+- Temporal UI (http://127.0.0.1:8080): BLOCKED (port used by pippai-help container)
+
+=== SUMMARY ===
+Temporal Stack:
+- PostgreSQL: UP (healthy)
+- Temporal Server: UP but NOT HEALTHY (DNS resolution issue - cannot resolve 'postgresql')
+- Temporal UI: UP but NO PORT BINDING (port 8080 conflict)
+
+PM2 Services:
+- workflow-api (2 instances): ONLINE but UNHEALTHY (can't connect to Temporal)
+- workflow-worker (2 instances): ERRORED (can't connect to Temporal)
+- teams-bot (1 instance): ERRORED (missing env vars: MICROSOFT_APP_ID, MICROSOFT_APP_PASSWORD)
+
+nginx: Configuration valid but proxy rules for order-processing NOT configured

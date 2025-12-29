@@ -134,12 +134,12 @@ If any access is denied, include the exact RBAC role needed (do not change RBAC 
 ## PHASE 3: SSL
 
 ### Step 7 — SSL Provisioning
-- Verify DNS: `dig +short pippai-vm.360innovate.com`
+- Verify DNS: `dig +short processing.pippaoflondon.co.uk`
 - Check existing certificate: `sudo certbot certificates`
 - If certificate missing or expiring within 30 days:
-  - `sudo certbot --nginx -d pippai-vm.360innovate.com --non-interactive --agree-tos -m devops@360innovate.com`
+  - `sudo certbot --nginx -d processing.pippaoflondon.co.uk --non-interactive --agree-tos -m devops@360innovate.com`
 - Verify HTTPS:
-  - `curl -I https://pippai-vm.360innovate.com/health`
+  - `curl -I https://processing.pippaoflondon.co.uk/health`
 - Verify renewal cron:
   - `systemctl list-timers | grep certbot || cat /etc/cron.d/certbot 2>/dev/null || echo "NO RENEWAL CONFIGURED"`
   - If missing, add: `echo "0 3 * * * root certbot renew --quiet" | sudo tee /etc/cron.d/certbot-renew`
@@ -232,7 +232,7 @@ If validation fails, stop and report what needs to be fixed.
 ### Step 13 — Teams artefacts readiness
 - Find Teams app package files (manifest/icons).
 - Validate:
-  - messaging endpoint matches `https://pippai-vm.360innovate.com/api/messages`
+  - messaging endpoint matches `https://processing.pippaoflondon.co.uk/api/messages`
   - personal scope bot enabled
   - file upload support enabled if expected
 - Produce upload instructions for antonio@pippaoflondon.co.uk
@@ -256,8 +256,8 @@ Run:
 - `curl -fsS http://127.0.0.1:3000/health`
 - `curl -fsS http://127.0.0.1:3978/api/messages -I || true` (endpoint may require POST)
 - External checks (if DNS works):
-  - `curl -fsS https://pippai-vm.360innovate.com/health`
-  - `curl -fsS https://pippai-vm.360innovate.com/temporal/ | head`
+  - `curl -fsS https://processing.pippaoflondon.co.uk/health`
+  - `curl -fsS https://processing.pippaoflondon.co.uk/temporal/ | head`
 
 ### Step 17 — Final report writing
 Write `REPORT_FINAL.md` with:

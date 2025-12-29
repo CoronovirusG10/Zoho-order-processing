@@ -84,7 +84,7 @@ After registration, copy these values (you'll need them later):
 3. Set the **Messaging endpoint**:
 
 ```
-https://pippai-vm.360innovate.com/api/messages
+https://processing.pippaoflondon.co.uk/api/messages
 ```
 
 4. Click **Apply**
@@ -159,7 +159,7 @@ You'll need to create a Teams app package (.zip) with the following files:
   ],
   "permissions": ["identity", "messageTeamMembers"],
   "validDomains": [
-    "pippai-vm.360innovate.com"
+    "processing.pippaoflondon.co.uk"
   ]
 }
 ```
