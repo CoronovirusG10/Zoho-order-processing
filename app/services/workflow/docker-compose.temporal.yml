@@ -21,6 +21,7 @@ services:
       retries: 5
     networks:
       temporal-network:
+        ipv4_address: 172.19.100.2
         aliases:
           - postgresql
 
@@ -28,20 +29,23 @@ services:
     image: temporalio/auto-setup:latest
     container_name: temporal-server
     restart: unless-stopped
+    user: root
     depends_on:
       postgresql:
         condition: service_healthy
-    links:
-      - postgresql
-    dns:
-      - 127.0.0.11
+    extra_hosts:
+      - "postgresql:172.19.100.2"
+    volumes:
+      - ./temporal-entrypoint-wrapper.sh:/temporal-entrypoint-wrapper.sh:ro
+    entrypoint: ["/temporal-entrypoint-wrapper.sh"]
+    command: ["autosetup"]
     environment:
       - DB=postgres12
       - DB_PORT=5432
       - POSTGRES_USER=temporal
       - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD:-temporal_password}
       - POSTGRES_SEEDS=postgresql
-      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/docker.yaml
     ports:
       - "127.0.0.1:7233:7233"
     healthcheck:
@@ -65,7 +69,7 @@ services:
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8088:8080"
     networks:
       temporal-network:
         aliases:
@@ -75,3 +79,7 @@ networks:
   temporal-network:
     driver: bridge
     name: temporal-network
+    ipam:
+      config:
+        - subnet: 172.19.100.0/24
+          gateway: 172.19.100.1

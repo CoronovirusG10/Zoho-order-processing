@@ -1,0 +1,82 @@
+# Teams Package Build Commands Log
+# Run ID: 20251229_195114
+# Timestamp: 2025-12-29T21:30:00+00:00
+
+# ============================================
+# Step 1: Verify MicrosoftAppId in .env
+# ============================================
+$ grep -E "MICROSOFT_APP_ID" /data/order-processing/app/.env
+MICROSOFT_APP_ID=a5017080-a433-4de7-84a4-0a72ae1be0a8
+
+# STATUS: FOUND - MicrosoftAppId confirmed
+
+# ============================================
+# Step 2: Locate manifest template
+# ============================================
+$ find /data/order-processing -maxdepth 6 -type f -name 'manifest.json' | head -5
+/data/order-processing/app/services/teams-bot/manifest/manifest.json
+/data/order-processing/app/teams-app/manifest.json
+
+# SELECTED: /data/order-processing/app/teams-app/manifest.json (v1.17 schema)
+
+# ============================================
+# Step 3: Verify icon files
+# ============================================
+$ file /data/order-processing/app/teams-app/color.png
+/data/order-processing/app/teams-app/color.png: PNG image data, 192 x 192, 8-bit/color RGBA, non-interlaced
+
+$ file /data/order-processing/app/teams-app/outline.png
+/data/order-processing/app/teams-app/outline.png: PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+
+# STATUS: PASSED - Icons meet Teams requirements (192x192 color, 32x32 outline)
+
+# ============================================
+# Step 4: Replace placeholders in manifest
+# ============================================
+# Placeholders replaced:
+#   {{BOT_APP_CLIENT_ID}} -> a5017080-a433-4de7-84a4-0a72ae1be0a8
+#   {{TAB_DOMAIN}} -> processing.pippaoflondon.co.uk
+#   {{BOT_DOMAIN}} -> processing.pippaoflondon.co.uk
+#   {{TAB_APP_CLIENT_ID}} -> a5017080-a433-4de7-84a4-0a72ae1be0a8
+#   My Orders -> My Cases (per requirements)
+#   Team Orders -> Manager View (per requirements)
+
+# STATUS: COMPLETED
+
+# ============================================
+# Step 5: Validate manifest JSON
+# ============================================
+$ python3 -c "import json; json.load(open('manifest.json'))"
+# STATUS: PASSED - Valid JSON
+
+# ============================================
+# Step 6: Create teams-app.zip
+# ============================================
+$ cd /data/order-processing/_codex_predeploy/20251229_195114
+$ cp /data/order-processing/app/teams-app/color.png .
+$ cp /data/order-processing/app/teams-app/outline.png .
+$ zip -r teams-app.zip manifest.json color.png outline.png
+  adding: manifest.json (deflated 67%)
+  adding: color.png (deflated 72%)
+  adding: outline.png (deflated 13%)
+
+# ============================================
+# Step 7: Verify zip contents
+# ============================================
+$ unzip -l teams-app.zip
+Archive:  teams-app.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+     2817  2025-12-29 21:30   manifest.json
+      450  2025-12-29 21:30   color.png
+      113  2025-12-29 21:30   outline.png
+---------                     -------
+     3380                     3 files
+
+# STATUS: PASSED - All required files present
+
+# ============================================
+# BUILD COMPLETE
+# ============================================
+# Output: /data/order-processing/_codex_predeploy/20251229_195114/teams-app.zip
+# Size: 1612 bytes

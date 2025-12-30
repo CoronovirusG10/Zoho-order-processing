@@ -7,8 +7,9 @@ import { TurnContext, CardFactory } from 'botbuilder';
 import { getCorrelationId } from '../middleware/correlation-middleware.js';
 import { createLogger } from '../middleware/logging-middleware.js';
 import { languageService, SupportedLanguage } from '../services/language-service.js';
-import { CaseService, CaseSummary } from '../services/case-service.js';
+import { CaseService, CaseSummary, CaseDocument } from '../services/case-service.js';
 import { TeamsChannelData } from '../types/teams-types.js';
+import { createCancelConfirmationCard } from '../cards/cancel-confirmation-card.js';
 
 export class MessageHandler {
   private caseService: CaseService;
@@ -36,6 +37,13 @@ export class MessageHandler {
 
     if (text === 'status' || text === 'وضعیت') {
       await this.sendStatusMessage(context, language);
+      return;
+    }
+
+    // Cancel command - support "cancel", "cancel [case-id]", "/cancel", "/cancel [case-id]"
+    if (text === 'cancel' || text === 'لغو' || text.startsWith('cancel ') || text.startsWith('/cancel') || text.startsWith('لغو ')) {
+      const args = text.replace(/^(\/cancel|cancel|لغو)\s*/, '').trim();
+      await this.handleCancelCommand(context, language, args || undefined);
       return;
     }
 
@@ -121,6 +129,11 @@ export class MessageHandler {
           '3. اگر مشکلی وجود داشته باشد، از شما خواسته می‌شود اصلاحات ارائه دهید',
           '4. پس از آماده شدن، می‌توانید برای ایجاد پیش‌نویس سفارش تأیید کنید',
           '',
+          '**دستورات:**',
+          '- `help` یا `راهنما` - نمایش این راهنما',
+          '- `status` یا `وضعیت` - نمایش سفارشات اخیر',
+          '- `cancel` یا `لغو` - لغو سفارش در حال پردازش',
+          '',
           '**نکات برای نتایج بهتر:**',
           '- از سرستون‌های واضح استفاده کنید (مثلاً "مشتری"، "کد محصول"، "تعداد")',
           '- به صورت مقادیر خالص ذخیره کنید (بدون فرمول)',
@@ -145,6 +158,11 @@ export class MessageHandler {
           '2. Customer and items are matched against Zoho Books',
           '3. If there are issues, you will be asked to provide corrections',
           '4. Once ready, you can approve to create a draft sales order',
+          '',
+          '**Commands:**',
+          '- `help` - Show this help message',
+          '- `status` - View your recent orders',
+          '- `cancel` - Cancel an in-progress order',
           '',
           '**Tips for best results:**',
           '- Use clear column headers (e.g., "Customer", "SKU", "Quantity")',
@@ -314,5 +332,129 @@ export class MessageHandler {
 
     const locale = language === 'fa' ? 'fa-IR' : 'en-US';
     return date.toLocaleDateString(locale, options);
+  }
+
+  /**
+   * Handle cancel command
+   * Allows users to cancel in-progress workflows
+   */
+  private async handleCancelCommand(
+    context: TurnContext,
+    language: SupportedLanguage,
+    caseIdArg?: string
+  ): Promise<void> {
+    const correlationId = getCorrelationId(context);
+    const logger = createLogger(correlationId);
+
+    const userId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
+    const channelData = context.activity.channelData as TeamsChannelData | undefined;
+    const tenantId = channelData?.tenant?.id || 'default';
+
+    logger.info('Cancel command received', { userId, tenantId, caseIdArg });
+
+    try {
+      let caseId = caseIdArg?.trim();
+
+      // If no case ID provided, find the most recent pending case
+      if (!caseId) {
+        caseId = await this.caseService.getMostRecentPendingCase(userId, tenantId) || undefined;
+      }
+
+      if (!caseId) {
+        const message = language === 'fa'
+          ? 'هیچ سفارش در حال پردازشی یافت نشد.'
+          : 'No pending orders found to cancel.';
+        await context.sendActivity(message);
+        return;
+      }
+
+      // Get case details
+      const caseData = await this.caseService.getCase(caseId, tenantId);
+      if (!caseData) {
+        const message = language === 'fa'
+          ? `سفارش ${caseId} یافت نشد.`
+          : `Order ${caseId} not found.`;
+        await context.sendActivity(message);
+        return;
+      }
+
+      // Verify ownership
+      if (caseData.userId !== userId) {
+        const message = language === 'fa'
+          ? 'شما فقط می‌توانید سفارشات خود را لغو کنید.'
+          : 'You can only cancel your own orders.';
+        await context.sendActivity(message);
+        return;
+      }
+
+      // Check if cancellable
+      if (!this.caseService.isCancellableStatus(caseData.status)) {
+        const statusDisplay = this.getStatusDisplay(caseData.status, language);
+        const message = language === 'fa'
+          ? `سفارش ${caseId} در وضعیت ${statusDisplay} است و قابل لغو نیست.`
+          : `Order ${caseId} is already ${statusDisplay} and cannot be cancelled.`;
+        await context.sendActivity(message);
+        return;
+      }
+
+      // Send confirmation card
+      const confirmCard = createCancelConfirmationCard(caseId, caseData, language);
+      await context.sendActivity({
+        attachments: [CardFactory.adaptiveCard(confirmCard)],
+      });
+
+      logger.info('Cancel confirmation card sent', { caseId });
+    } catch (error) {
+      logger.error('Failed to process cancel command', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      const message = language === 'fa'
+        ? 'خطا در پردازش درخواست لغو. لطفاً دوباره تلاش کنید.'
+        : 'Failed to process cancel request. Please try again.';
+      await context.sendActivity(message);
+    }
+  }
+
+  /**
+   * Get localized status display
+   */
+  private getStatusDisplay(status: string, language: SupportedLanguage): string {
+    const statusMapEn: Record<string, string> = {
+      storing_file: 'Uploading',
+      parsing: 'Analyzing',
+      running_committee: 'AI Review',
+      awaiting_corrections: 'Needs Corrections',
+      resolving_customer: 'Matching Customer',
+      awaiting_customer_selection: 'Select Customer',
+      resolving_items: 'Matching Items',
+      awaiting_item_selection: 'Select Items',
+      awaiting_approval: 'Ready for Approval',
+      creating_zoho_draft: 'Creating Order',
+      queued_for_zoho: 'Queued',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+      failed: 'Failed',
+    };
+
+    const statusMapFa: Record<string, string> = {
+      storing_file: 'در حال آپلود',
+      parsing: 'در حال تجزیه',
+      running_committee: 'بررسی هوش مصنوعی',
+      awaiting_corrections: 'نیاز به اصلاح',
+      resolving_customer: 'تطبیق مشتری',
+      awaiting_customer_selection: 'انتخاب مشتری',
+      resolving_items: 'تطبیق اقلام',
+      awaiting_item_selection: 'انتخاب اقلام',
+      awaiting_approval: 'آماده تأیید',
+      creating_zoho_draft: 'ایجاد سفارش',
+      queued_for_zoho: 'در صف',
+      completed: 'تکمیل شده',
+      cancelled: 'لغو شده',
+      failed: 'ناموفق',
+    };
+
+    const map = language === 'fa' ? statusMapFa : statusMapEn;
+    return map[status] || status;
   }
 }

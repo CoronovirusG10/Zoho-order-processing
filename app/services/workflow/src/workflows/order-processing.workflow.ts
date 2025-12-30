@@ -57,8 +57,14 @@ import type {
   ApplyCorrectionsOutput,
   ApplySelectionsInput,
   ApplySelectionsOutput,
+  FinalizeAuditInput,
+  FinalizeAuditOutput,
   CaseStatus,
+  HumanWaitContext,
+  HumanWaitTimeoutConfig,
 } from './types';
+
+import { DEFAULT_HUMAN_WAIT_TIMEOUT } from './types';
 
 // ============================================================================
 // Retry Policies
@@ -106,6 +112,7 @@ interface Activities {
   updateCase(input: UpdateCaseInput): Promise<UpdateCaseOutput>;
   applyCorrections(input: ApplyCorrectionsInput): Promise<ApplyCorrectionsOutput>;
   applySelections(input: ApplySelectionsInput): Promise<ApplySelectionsOutput>;
+  finalizeAudit(input: FinalizeAuditInput): Promise<FinalizeAuditOutput>;
 }
 
 // ============================================================================
@@ -138,6 +145,18 @@ const { createZohoDraft: createZohoDraftAggressive } = proxyActivities<Activitie
   retry: aggressiveRetry,
 });
 
+/**
+ * Finalize audit activity with appropriate timeout for blob operations
+ */
+const { finalizeAudit } = proxyActivities<Activities>({
+  startToCloseTimeout: '60s',
+  retry: {
+    maximumAttempts: 3,
+    initialInterval: '5s',
+    backoffCoefficient: 2,
+  },
+});
+
 // ============================================================================
 // Re-export Types for External Use
 // ============================================================================
@@ -150,7 +169,12 @@ export type {
   CorrectionsSubmittedEvent,
   SelectionsSubmittedEvent,
   ApprovalReceivedEvent,
+  HumanWaitContext,
+  HumanWaitTimeoutConfig,
+  DurationString,
 } from './types';
+
+export { DEFAULT_HUMAN_WAIT_TIMEOUT } from './types';
 
 // Workflow result type (alias for backward compatibility)
 export type OrderProcessingResult = OrderProcessingOutput;
@@ -205,6 +229,151 @@ export const approvalReceivedSignal = defineSignal<[ApprovalReceivedEvent]>('App
  * Query to get current workflow state
  */
 export const getStateQuery = defineQuery<WorkflowState>('getState');
+
+// ============================================================================
+// Human Wait with Escalation Helper
+// ============================================================================
+
+/**
+ * Result of waiting for human input with timeout escalation
+ */
+type HumanWaitResult =
+  | { received: true }
+  | { received: false; reason: 'timeout' };
+
+/**
+ * Options for waiting for human input with escalation
+ */
+interface WaitForHumanOptions {
+  /** Function that returns true when the expected signal has been received */
+  conditionFn: () => boolean;
+  /** Type of wait for notification context */
+  waitType: HumanWaitContext['waitType'];
+  /** Case ID for notifications */
+  caseId: string;
+  /** User ID who should respond */
+  userId?: string;
+  /** Manager to escalate to (optional) */
+  managerUserId?: string;
+  /** Timeout configuration (uses defaults if not provided) */
+  timeoutConfig?: HumanWaitTimeoutConfig;
+}
+
+/**
+ * Wait for human input with automatic reminder, escalation, and timeout handling.
+ *
+ * Timeline:
+ * - 0-24h: Wait for signal
+ * - 24h: Send reminder notification
+ * - 24h-48h: Continue waiting for signal
+ * - 48h: Send escalation notification (optionally to manager)
+ * - 48h-6d: Continue waiting for signal
+ * - 6d: Send timeout warning
+ * - 6d-7d: Final wait period
+ * - 7d: Auto-cancel (throw ApplicationFailure)
+ *
+ * @param options - Configuration for the human wait
+ * @returns HumanWaitResult indicating if signal was received or timeout occurred
+ */
+async function waitForHumanWithEscalation(options: WaitForHumanOptions): Promise<HumanWaitResult> {
+  const {
+    conditionFn,
+    waitType,
+    caseId,
+    userId,
+    managerUserId,
+    timeoutConfig = DEFAULT_HUMAN_WAIT_TIMEOUT,
+  } = options;
+
+  // Phase 1: Initial wait until reminder time (24h default)
+  log.info(`[${caseId}] Starting human wait with escalation`, {
+    waitType,
+    reminderAfter: timeoutConfig.reminderAfter,
+    escalationAfter: timeoutConfig.escalationAfter,
+    maxWait: timeoutConfig.maxWait,
+  });
+
+  const phase1Result = await condition(conditionFn, timeoutConfig.reminderAfter);
+
+  if (phase1Result) {
+    log.info(`[${caseId}] Human response received before reminder`, { waitType });
+    return { received: true };
+  }
+
+  // Phase 2: Send reminder and wait until escalation time
+  log.info(`[${caseId}] Sending reminder notification`, { waitType, waitDuration: timeoutConfig.reminderAfter });
+
+  await notifyUser({
+    caseId,
+    type: 'reminder',
+    waitContext: {
+      waitType,
+      waitDuration: timeoutConfig.reminderAfter,
+      userId,
+    },
+  });
+
+  // Calculate remaining time until escalation (48h - 24h = 24h)
+  const phase2Duration = '24h'; // Time between reminder and escalation
+  const phase2Result = await condition(conditionFn, phase2Duration);
+
+  if (phase2Result) {
+    log.info(`[${caseId}] Human response received after reminder`, { waitType });
+    return { received: true };
+  }
+
+  // Phase 3: Send escalation and wait until timeout warning
+  log.info(`[${caseId}] Sending escalation notification`, { waitType, waitDuration: timeoutConfig.escalationAfter });
+
+  await notifyUser({
+    caseId,
+    type: 'escalation',
+    waitContext: {
+      waitType,
+      waitDuration: timeoutConfig.escalationAfter,
+      userId,
+      managerUserId,
+    },
+  });
+
+  // Wait from 48h to 6d (5 days + 16 hours, or approximately 5d)
+  const phase3Duration = '5d';
+  const phase3Result = await condition(conditionFn, phase3Duration);
+
+  if (phase3Result) {
+    log.info(`[${caseId}] Human response received after escalation`, { waitType });
+    return { received: true };
+  }
+
+  // Phase 4: Send timeout warning and final wait
+  log.info(`[${caseId}] Sending timeout warning notification`, { waitType, waitDuration: '6d' });
+
+  await notifyUser({
+    caseId,
+    type: 'timeout_warning',
+    waitContext: {
+      waitType,
+      waitDuration: '6 days',
+      userId,
+      managerUserId,
+      timeUntilCancel: '24 hours',
+    },
+  });
+
+  // Final wait (24 hours until max wait of 7 days)
+  const phase4Duration = '1d';
+  const phase4Result = await condition(conditionFn, phase4Duration);
+
+  if (phase4Result) {
+    log.info(`[${caseId}] Human response received after timeout warning`, { waitType });
+    return { received: true };
+  }
+
+  // Timeout - no response received within max wait time
+  log.warn(`[${caseId}] Human wait timed out after ${timeoutConfig.maxWait}`, { waitType });
+
+  return { received: false, reason: 'timeout' };
+}
 
 // ============================================================================
 // Main Workflow
@@ -385,10 +554,33 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         issues: committeeResult.disagreements,
       });
 
-      // Wait for user corrections
+      // Wait for user corrections with timeout/escalation handling
       updateState('awaiting_corrections', 'awaiting_user_input');
       log.info(`[${caseId}] Step 3: Waiting for user corrections`);
-      await condition(() => correctionsSubmittedEvent !== null);
+
+      const correctionsWaitResult = await waitForHumanWithEscalation({
+        conditionFn: () => correctionsSubmittedEvent !== null,
+        waitType: 'corrections',
+        caseId,
+        userId,
+      });
+
+      if (!correctionsWaitResult.received) {
+        // Timed out waiting for corrections - auto-cancel workflow
+        log.warn(`[${caseId}] Step 3: Corrections wait timed out, auto-cancelling workflow`);
+        await updateCase({
+          caseId,
+          tenantId,
+          correlationId,
+          status: 'cancelled',
+          eventType: 'workflow_cancelled',
+          updates: {
+            cancelledAt: new Date().toISOString(),
+            cancellationReason: 'Workflow timed out waiting for corrections (7 days)',
+          },
+        });
+        throw ApplicationFailure.nonRetryable('Workflow timed out waiting for user corrections after 7 days');
+      }
 
       const correctionsEvent = correctionsSubmittedEvent!;
       log.info(`[${caseId}] Step 3: Corrections received, applying`, {
@@ -397,7 +589,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
       await applyCorrections({
         caseId,
+        tenantId,
         corrections: correctionsEvent.corrections,
+        submittedBy: correctionsEvent.submittedBy,
+        correlationId,
       });
     }
 
@@ -428,13 +623,36 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         candidates: { customer: customerResult.candidates },
       });
 
-      // Wait for customer selection
+      // Wait for customer selection with timeout/escalation handling
       updateState('awaiting_customer_selection', 'awaiting_user_input');
       log.info(`[${caseId}] Step 4: Waiting for customer selection`);
 
       // Reset selections event to allow fresh selection
       selectionsSubmittedEvent = null;
-      await condition(() => selectionsSubmittedEvent !== null);
+
+      const customerSelectionWaitResult = await waitForHumanWithEscalation({
+        conditionFn: () => selectionsSubmittedEvent !== null,
+        waitType: 'customer_selection',
+        caseId,
+        userId,
+      });
+
+      if (!customerSelectionWaitResult.received) {
+        // Timed out waiting for customer selection - auto-cancel workflow
+        log.warn(`[${caseId}] Step 4: Customer selection wait timed out, auto-cancelling workflow`);
+        await updateCase({
+          caseId,
+          tenantId,
+          correlationId,
+          status: 'cancelled',
+          eventType: 'workflow_cancelled',
+          updates: {
+            cancelledAt: new Date().toISOString(),
+            cancellationReason: 'Workflow timed out waiting for customer selection (7 days)',
+          },
+        });
+        throw ApplicationFailure.nonRetryable('Workflow timed out waiting for customer selection after 7 days');
+      }
 
       const selectionsEvent = selectionsSubmittedEvent!;
       log.info(`[${caseId}] Step 4: Customer selected, applying`, {
@@ -443,7 +661,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
       await applySelections({
         caseId,
+        tenantId,
         selections: selectionsEvent.selections,
+        submittedBy: selectionsEvent.submittedBy,
+        correlationId,
       });
     }
 
@@ -477,13 +698,36 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         candidates: { items: itemsResult.candidates },
       });
 
-      // Wait for item selections
+      // Wait for item selections with timeout/escalation handling
       updateState('awaiting_item_selection', 'awaiting_user_input');
       log.info(`[${caseId}] Step 5: Waiting for item selections`);
 
       // Reset selections event to allow fresh selection
       selectionsSubmittedEvent = null;
-      await condition(() => selectionsSubmittedEvent !== null);
+
+      const itemSelectionWaitResult = await waitForHumanWithEscalation({
+        conditionFn: () => selectionsSubmittedEvent !== null,
+        waitType: 'item_selection',
+        caseId,
+        userId,
+      });
+
+      if (!itemSelectionWaitResult.received) {
+        // Timed out waiting for item selection - auto-cancel workflow
+        log.warn(`[${caseId}] Step 5: Item selection wait timed out, auto-cancelling workflow`);
+        await updateCase({
+          caseId,
+          tenantId,
+          correlationId,
+          status: 'cancelled',
+          eventType: 'workflow_cancelled',
+          updates: {
+            cancelledAt: new Date().toISOString(),
+            cancellationReason: 'Workflow timed out waiting for item selection (7 days)',
+          },
+        });
+        throw ApplicationFailure.nonRetryable('Workflow timed out waiting for item selection after 7 days');
+      }
 
       const selectionsEvent = selectionsSubmittedEvent!;
       log.info(`[${caseId}] Step 5: Items selected, applying`, {
@@ -492,7 +736,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
       await applySelections({
         caseId,
+        tenantId,
         selections: selectionsEvent.selections,
+        submittedBy: selectionsEvent.submittedBy,
+        correlationId,
       });
     }
 
@@ -510,8 +757,32 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
       type: 'ready_for_approval',
     });
 
+    // Wait for approval with timeout/escalation handling
     log.info(`[${caseId}] Step 6: Waiting for approval`);
-    await condition(() => approvalReceivedEvent !== null);
+
+    const approvalWaitResult = await waitForHumanWithEscalation({
+      conditionFn: () => approvalReceivedEvent !== null,
+      waitType: 'approval',
+      caseId,
+      userId,
+    });
+
+    if (!approvalWaitResult.received) {
+      // Timed out waiting for approval - auto-cancel workflow
+      log.warn(`[${caseId}] Step 6: Approval wait timed out, auto-cancelling workflow`);
+      await updateCase({
+        caseId,
+        tenantId,
+        correlationId,
+        status: 'cancelled',
+        eventType: 'workflow_cancelled',
+        updates: {
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: 'Workflow timed out waiting for approval (7 days)',
+        },
+      });
+      throw ApplicationFailure.nonRetryable('Workflow timed out waiting for approval after 7 days');
+    }
 
     const approvalEvent = approvalReceivedEvent!;
 
@@ -592,15 +863,52 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     });
 
     // -------------------------------------------------------------------------
-    // Step 8: Notify complete
+    // Step 8: Finalize audit bundle
+    // -------------------------------------------------------------------------
+    updateState('finalizing_audit');
+    log.info(`[${caseId}] Step 8: Finalizing audit bundle`);
+
+    let auditManifestPath: string | undefined;
+    try {
+      const auditResult = await finalizeAudit({
+        caseId,
+        tenantId,
+        userId,
+        correlationId,
+        zohoOrderId: zohoResult.salesorder_id,
+      });
+
+      if (auditResult.success) {
+        auditManifestPath = auditResult.manifestPath;
+        log.info(`[${caseId}] Step 8: Audit bundle finalized`, {
+          manifestPath: auditResult.manifestPath,
+          artifactCount: auditResult.artifactCount,
+          manifestSha256: auditResult.manifestSha256,
+        });
+      } else {
+        log.warn(`[${caseId}] Step 8: Audit finalization failed (non-blocking)`, {
+          error: auditResult.error,
+        });
+      }
+    } catch (auditError) {
+      // Don't fail the workflow if audit finalization fails
+      const auditErrorMessage = auditError instanceof Error ? auditError.message : String(auditError);
+      log.warn(`[${caseId}] Step 8: Audit finalization error (non-blocking)`, {
+        error: auditErrorMessage,
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // Step 9: Notify complete
     // -------------------------------------------------------------------------
     updateState('notifying_complete', 'completed');
-    log.info(`[${caseId}] Step 8: Notifying user of completion`);
+    log.info(`[${caseId}] Step 9: Notifying user of completion`);
 
     await notifyUser({
       caseId,
       type: 'complete',
       zohoOrderId: zohoResult.salesorder_id,
+      auditManifestPath,
     });
 
     await updateCase({

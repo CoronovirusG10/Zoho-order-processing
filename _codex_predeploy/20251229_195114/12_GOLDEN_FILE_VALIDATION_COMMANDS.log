@@ -1,0 +1,55 @@
+# Golden File Validation - Command Log
+# Run ID: 20251229_195114
+# Timestamp: 2025-12-29T19:51:14Z
+
+# Step 1: Check service status
+$ pm2 ls | grep -E "(workflow-api|workflow-worker)"
+workflow-api       | online (2 instances)
+workflow-worker    | errored (2 instances)
+
+# Step 2: Search for golden directories
+$ find /data/order-processing -maxdepth 6 -type d -name 'golden' 2>/dev/null
+/data/order-processing/app/services/committee/tests/golden
+
+# Step 3: Search for Excel files
+$ find /data/order-processing -maxdepth 6 -type f \( -name '*.xlsx' -o -name '*.xls' \) 2>/dev/null
+/data/order-processing/app/tests/fixtures/simple-order.xlsx
+/data/order-processing/app/tests/fixtures/multi-line-order.xlsx
+/data/order-processing/app/tests/fixtures/farsi-headers.xlsx
+/data/order-processing/app/tests/fixtures/mixed-language.xlsx
+/data/order-processing/app/tests/fixtures/order-with-formulas.xlsx
+/data/order-processing/app/tests/fixtures/persian-digits.xlsx
+
+# Step 4: Check golden-files fixture directory
+$ ls -la /data/order-processing/app/tests/golden-files/fixtures/
+total 12
+drwxrwxr-x+ 2 azureuser azureuser 4096 Dec 25 17:27 .
+drwxrwxr-x+ 4 azureuser azureuser 4096 Dec 25 17:27 ..
+-rw-------+ 1 azureuser azureuser   98 Dec 25 17:27 .gitkeep
+
+# Note: .gitkeep contains placeholder text:
+# "Placeholder for Excel fixture files"
+# "Generate fixtures by running: tsx ../generate-fixtures.ts"
+
+# Step 5: Check golden-files expected directory
+$ ls -la /data/order-processing/app/tests/golden-files/expected/
+total 24
+drwxrwxr-x+ 2 azureuser azureuser 4096 Dec 25 17:26 .
+drwxrwxr-x+ 4 azureuser azureuser 4096 Dec 25 17:27 ..
+-rw-------+ 1 azureuser azureuser 1362 Dec 25 17:26 missing-sku.json
+-rw-------+ 1 azureuser azureuser 2426 Dec 25 17:26 simple-english.json
+-rw-------+ 1 azureuser azureuser 1653 Dec 25 17:26 simple-farsi.json
+-rw-------+ 1 azureuser azureuser  880 Dec 25 17:26 with-formulas.json
+
+# Step 6: Check committee golden files
+$ ls -la /data/order-processing/app/services/committee/tests/golden/
+total 20
+drwxrwxr-x+ 2 azureuser azureuser 4096 Dec 25 17:23 .
+drwxrwxr-x+ 3 azureuser azureuser 4096 Dec 25 17:22 ..
+-rw-------+ 1 azureuser azureuser 2094 Dec 25 17:23 golden-001-english.json
+-rw-------+ 1 azureuser azureuser 2159 Dec 25 17:23 golden-002-farsi.json
+-rw-------+ 1 azureuser azureuser 2590 Dec 25 17:23 golden-003-ambiguous.json
+
+# Result: Golden file validation SKIPPED
+# Reason: No golden Excel files (.xlsx) found in fixtures directory
+# Infrastructure exists but fixtures not yet generated

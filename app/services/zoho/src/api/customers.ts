@@ -3,9 +3,15 @@
  *
  * Provides methods to list and search customers in Zoho Books.
  * Never creates customers - all customers must exist in Zoho.
+ *
+ * Audit Logging:
+ * - All API requests/responses are logged to Azure Blob Storage
+ * - 5-year retention for compliance
+ * - Graceful degradation if audit logging fails
  */
 
 import axios, { AxiosError } from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ZohoCustomer,
   ZohoPaginatedResponse,
@@ -13,16 +19,30 @@ import {
   ZohoAuditLog,
 } from '../types.js';
 import { ZohoOAuthManager } from '../auth/oauth-manager.js';
+import { BlobAuditStore } from '../storage/blob-audit-store.js';
 
 export interface ListCustomersOptions {
   status?: 'active' | 'inactive' | 'all';
   searchText?: string;
   page?: number;
   perPage?: number;
+  /** Correlation ID for audit logging */
+  correlationId?: string;
+  /** Case ID for audit logging */
+  caseId?: string;
+  /** Tenant ID for audit logging */
+  tenantId?: string;
 }
 
 export class ZohoCustomersApi {
-  constructor(private readonly oauth: ZohoOAuthManager) {}
+  private readonly auditStore?: BlobAuditStore;
+
+  constructor(
+    private readonly oauth: ZohoOAuthManager,
+    auditStore?: BlobAuditStore
+  ) {
+    this.auditStore = auditStore;
+  }
 
   /**
    * List all customers with optional filtering
@@ -31,6 +51,11 @@ export class ZohoCustomersApi {
     const baseUrl = await this.oauth.getApiBaseUrl();
     const orgId = await this.oauth.getOrganizationId();
     const token = await this.oauth.getAccessToken();
+
+    const correlationId = options.correlationId || uuidv4();
+    const caseId = options.caseId || '';
+    const tenantId = options.tenantId || '';
+    const url = `${baseUrl}/books/v3/contacts`;
 
     const params: Record<string, string> = {
       organization_id: orgId,
@@ -54,9 +79,22 @@ export class ZohoCustomersApi {
 
     const startTime = Date.now();
 
+    // Log request to blob storage before sending
+    if (this.auditStore) {
+      await this.auditStore.logApiRequest({
+        operation: 'customers/list',
+        correlationId,
+        caseId,
+        tenantId,
+        method: 'GET',
+        url,
+        requestBody: { params: { ...params, organization_id: '[REDACTED]' } },
+      }).catch(err => console.warn('[ZohoCustomersApi] Audit log request failed:', err));
+    }
+
     try {
       const response = await axios.get<ZohoPaginatedResponse<ZohoCustomer>>(
-        `${baseUrl}/books/v3/contacts`,
+        url,
         {
           params,
           headers: {
@@ -74,15 +112,30 @@ export class ZohoCustomersApi {
         (contact) => contact.contact_type === 'customer'
       );
 
-      // Log successful request
+      // Log successful response to blob storage
+      if (this.auditStore) {
+        await this.auditStore.logApiResponse({
+          operation: 'customers/list',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: response.status,
+          responseBody: { count: customers.length },
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoCustomersApi] Audit log response failed:', err));
+      }
+
+      // Also log to console for backward compatibility
       this.logAudit({
-        correlation_id: '',
-        case_id: '',
+        correlation_id: correlationId,
+        case_id: caseId,
         timestamp: new Date().toISOString(),
         operation: 'customer_lookup',
         request: {
           method: 'GET',
-          url: `${baseUrl}/books/v3/contacts`,
+          url,
         },
         response: {
           status: response.status,
@@ -94,6 +147,24 @@ export class ZohoCustomersApi {
       return customers;
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      // Log error response to blob storage
+      if (this.auditStore) {
+        const axiosError = axios.isAxiosError(error) ? error as AxiosError : null;
+        await this.auditStore.logApiResponse({
+          operation: 'customers/list',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: axiosError?.response?.status || 0,
+          responseBody: axiosError?.response?.data as object | undefined,
+          errorMessage: (error as Error).message,
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoCustomersApi] Audit log error failed:', err));
+      }
+
       this.handleApiError(error, 'customer_lookup', duration);
       throw error;
     }
@@ -102,16 +173,37 @@ export class ZohoCustomersApi {
   /**
    * Get a specific customer by ID
    */
-  async getCustomer(customerId: string): Promise<ZohoCustomer | null> {
+  async getCustomer(
+    customerId: string,
+    options: { correlationId?: string; caseId?: string; tenantId?: string } = {}
+  ): Promise<ZohoCustomer | null> {
     const baseUrl = await this.oauth.getApiBaseUrl();
     const orgId = await this.oauth.getOrganizationId();
     const token = await this.oauth.getAccessToken();
 
+    const correlationId = options.correlationId || uuidv4();
+    const caseId = options.caseId || '';
+    const tenantId = options.tenantId || '';
+    const url = `${baseUrl}/books/v3/contacts/${customerId}`;
+
     const startTime = Date.now();
+
+    // Log request to blob storage before sending
+    if (this.auditStore) {
+      await this.auditStore.logApiRequest({
+        operation: 'customers/get',
+        correlationId,
+        caseId,
+        tenantId,
+        method: 'GET',
+        url,
+        requestBody: { customerId },
+      }).catch(err => console.warn('[ZohoCustomersApi] Audit log request failed:', err));
+    }
 
     try {
       const response = await axios.get<ZohoApiResponse<{ contact: ZohoCustomer }>>(
-        `${baseUrl}/books/v3/contacts/${customerId}`,
+        url,
         {
           params: { organization_id: orgId },
           headers: {
@@ -124,14 +216,29 @@ export class ZohoCustomersApi {
 
       const duration = Date.now() - startTime;
 
+      // Log successful response to blob storage
+      if (this.auditStore) {
+        await this.auditStore.logApiResponse({
+          operation: 'customers/get',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: response.status,
+          responseBody: { found: !!response.data.data?.contact },
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoCustomersApi] Audit log response failed:', err));
+      }
+
       this.logAudit({
-        correlation_id: '',
-        case_id: '',
+        correlation_id: correlationId,
+        case_id: caseId,
         timestamp: new Date().toISOString(),
         operation: 'customer_lookup',
         request: {
           method: 'GET',
-          url: `${baseUrl}/books/v3/contacts/${customerId}`,
+          url,
         },
         response: {
           status: response.status,
@@ -144,7 +251,38 @@ export class ZohoCustomersApi {
       const duration = Date.now() - startTime;
 
       if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Log 404 as a valid response (not found)
+        if (this.auditStore) {
+          await this.auditStore.logApiResponse({
+            operation: 'customers/get',
+            correlationId,
+            caseId,
+            tenantId,
+            method: 'GET',
+            url,
+            statusCode: 404,
+            responseBody: { found: false },
+            durationMs: duration,
+          }).catch(err => console.warn('[ZohoCustomersApi] Audit log response failed:', err));
+        }
         return null;
+      }
+
+      // Log error response to blob storage
+      if (this.auditStore) {
+        const axiosError = axios.isAxiosError(error) ? error as AxiosError : null;
+        await this.auditStore.logApiResponse({
+          operation: 'customers/get',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: axiosError?.response?.status || 0,
+          responseBody: axiosError?.response?.data as object | undefined,
+          errorMessage: (error as Error).message,
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoCustomersApi] Audit log error failed:', err));
       }
 
       this.handleApiError(error, 'customer_lookup', duration);

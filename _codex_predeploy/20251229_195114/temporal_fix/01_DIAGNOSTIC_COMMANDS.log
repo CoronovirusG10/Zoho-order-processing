@@ -1,0 +1,192 @@
+# Temporal Docker Infrastructure Diagnostic Commands Log
+# Executed: 2025-12-29
+# Working Directory: /data/order-processing
+
+================================================================================
+COMMAND: docker network ls
+================================================================================
+NETWORK ID     NAME                             DRIVER    SCOPE
+eb45a072b639   bridge                           bridge    local
+eaff302d56c6   host                             host      local
+b02212c9de70   librechat_librechat_network      bridge    local
+a5a1ed939e1c   none                             null      local
+fc6acc2297c4   pippai-network                   bridge    local
+e6f8fc5b2464   temporal-network                 bridge    local
+7d69a043ab58   visionary-lab-official_default   bridge    local
+
+================================================================================
+COMMAND: docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+================================================================================
+NAMES                   STATUS                      PORTS
+temporal-ui             Up 3 hours
+temporal-server         Up 3 hours (unhealthy)      6933-6935/tcp, 6939/tcp, 7234-7235/tcp, 7239/tcp, 127.0.0.1:7233->7233/tcp
+temporal-postgresql     Up 3 hours (healthy)        127.0.0.1:5432->5432/tcp
+
+================================================================================
+COMMAND: docker network inspect temporal-network
+================================================================================
+Network: temporal-network (e6f8fc5b2464)
+Subnet: 172.19.0.0/16
+Gateway: 172.19.0.1
+
+Containers:
+- temporal-postgresql: 172.19.0.2
+- temporal-server: 172.19.0.3
+
+================================================================================
+COMMAND: docker inspect temporal-server --format '{{json .NetworkSettings.Networks}}'
+================================================================================
+{
+    "temporal-network": {
+        "IPAddress": "172.19.0.3",
+        "Gateway": "172.19.0.1",
+        "Links": [
+            "temporal-postgresql:postgresql"
+        ],
+        "Aliases": [
+            "temporal-server",
+            "temporal"
+        ],
+        "DNSNames": [
+            "temporal-server",
+            "temporal"
+        ]
+    }
+}
+
+================================================================================
+COMMAND: docker inspect temporal-postgresql --format '{{json .NetworkSettings.Networks}}'
+================================================================================
+{
+    "temporal-network": {
+        "IPAddress": "172.19.0.2",
+        "Gateway": "172.19.0.1",
+        "Aliases": [
+            "temporal-postgresql",
+            "postgresql"
+        ],
+        "DNSNames": [
+            "temporal-postgresql",
+            "postgresql"
+        ]
+    }
+}
+
+================================================================================
+COMMAND: docker exec temporal-server nslookup postgresql
+================================================================================
+nslookup: write to '127.0.0.1': Connection refused
+;; connection timed out; no servers could be reached
+[EXIT CODE: FAIL - DNS resolution failed]
+
+================================================================================
+COMMAND: docker exec temporal-server cat /etc/resolv.conf
+================================================================================
+cat: can't open '/etc/resolv.conf': Permission denied
+[EXIT CODE: 1]
+
+================================================================================
+COMMAND: docker exec temporal-server ping -c 3 postgresql
+================================================================================
+ping: bad address 'postgresql'
+[EXIT CODE: FAIL - Hostname resolution failed]
+
+================================================================================
+COMMAND: docker exec temporal-server nc -zv postgresql 5432
+================================================================================
+nc: bad address 'postgresql'
+[EXIT CODE: FAIL - Hostname resolution failed]
+
+================================================================================
+COMMAND: docker exec temporal-server nc -zv 172.19.0.2 5432
+================================================================================
+172.19.0.2 (172.19.0.2:5432) open
+[EXIT CODE: SUCCESS - Direct IP connectivity works!]
+
+================================================================================
+COMMAND: docker logs temporal-server --tail 150
+================================================================================
+nc: bad address 'postgresql'
+Waiting for PostgreSQL to startup.
+[... repeated indefinitely ...]
+
+Root Cause: temporal-server startup script cannot resolve hostname 'postgresql'
+because DNS is misconfigured.
+
+================================================================================
+COMMAND: docker inspect temporal-server --format '{{json .HostConfig.Dns}}'
+================================================================================
+["127.0.0.11"]
+
+PROBLEM IDENTIFIED: dns: 127.0.0.11 is configured, but this is a loopback
+address that doesn't have DNS services running inside the container.
+
+================================================================================
+COMMAND: docker inspect temporal-server --format '{{json .Config.Env}}'
+================================================================================
+[
+    "DB=postgres12",
+    "DB_PORT=5432",
+    "POSTGRES_USER=temporal",
+    "POSTGRES_PWD=temporal_password",
+    "POSTGRES_SEEDS=postgresql",       <-- Uses hostname, which fails to resolve
+    ...
+]
+
+================================================================================
+COMMAND: docker-compose.temporal.yml analysis
+================================================================================
+Location: /data/order-processing/app/services/workflow/docker-compose.temporal.yml
+
+temporal service configuration:
+  dns:
+    - 127.0.0.11    <-- PROBLEM: Docker embedded DNS is 127.0.0.11 but this
+                        explicit override BREAKS the default Docker DNS behavior
+
+================================================================================
+COMMAND: sudo lsof -i :8080
+================================================================================
+COMMAND       PID USER   FD   TYPE    DEVICE SIZE/OFF NODE NAME
+docker-pr 2799605 root    7u  IPv4 112234010      0t0  TCP *:http-alt (LISTEN)
+docker-pr 2799613 root    7u  IPv6 112234011      0t0  TCP *:http-alt (LISTEN)
+
+================================================================================
+COMMAND: docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep 8080
+================================================================================
+temporal-ui           [No ports shown - binding failed]
+pippai-help           0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+
+PROBLEM: Port 8080 conflict between temporal-ui and pippai-help
+- pippai-help started FIRST and grabbed 0.0.0.0:8080
+- temporal-ui was configured for 127.0.0.1:8080 but binding failed
+
+================================================================================
+COMMAND: docker inspect temporal-ui --format '{{json .HostConfig.PortBindings}}'
+================================================================================
+{
+    "8080/tcp": [{"HostIp": "127.0.0.1", "HostPort": "8080"}]
+}
+
+================================================================================
+COMMAND: docker inspect pippai-help --format '{{json .HostConfig.PortBindings}}'
+================================================================================
+{
+    "80/tcp": [{"HostIp": "", "HostPort": "8080"}]  <-- Empty HostIp = 0.0.0.0
+}
+
+================================================================================
+COMMAND: docker logs temporal-postgresql --tail 30
+================================================================================
+2025-12-29 20:04:44.685 UTC [1] LOG:  starting PostgreSQL 15.15
+2025-12-29 20:04:44.703 UTC [1] LOG:  database system is ready to accept connections
+[PostgreSQL is healthy and operational]
+
+================================================================================
+COMMAND: docker exec temporal-postgresql nc -zv localhost 5432
+================================================================================
+localhost ([::1]:5432) open
+[PostgreSQL accepting connections - HEALTHY]
+
+================================================================================
+END OF DIAGNOSTIC LOG
+================================================================================

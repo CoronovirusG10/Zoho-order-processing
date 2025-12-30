@@ -1,0 +1,146 @@
+# Workflow Services Restart Commands Log
+# Generated: 2025-12-29T23:14:18Z
+
+================================================================================
+STEP 1: Check current PM2 status
+================================================================================
+$ pm2 status
+
+┌────┬────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name               │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 5  │ teams-bot          │ default     │ 0.1.0   │ fork    │ 134071   │ 108m   │ 0    │ online    │ 0%       │ 95.8mb   │ azureus… │ disabled │
+│ 0  │ workflow-api       │ default     │ 0.1.0   │ cluster │ 4269     │ 3h     │ 0    │ online    │ 0%       │ 85.2mb   │ azureus… │ disabled │
+│ 1  │ workflow-api       │ default     │ 0.1.0   │ cluster │ 4276     │ 3h     │ 0    │ online    │ 0%       │ 85.4mb   │ azureus… │ disabled │
+│ 2  │ workflow-worker    │ default     │ 0.1.0   │ cluster │ 0        │ 0      │ 15   │ errored   │ 0%       │ 0b       │ azureus… │ disabled │
+│ 3  │ workflow-worker    │ default     │ 0.1.0   │ cluster │ 0        │ 0      │ 15   │ errored   │ 0%       │ 0b       │ azureus… │ disabled │
+└────┴────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+
+$ pm2 jlist | jq '.[] | {name, status: .pm2_env.status}'
+
+{
+  "name": "workflow-api",
+  "status": "online"
+}
+{
+  "name": "workflow-api",
+  "status": "online"
+}
+{
+  "name": "workflow-worker",
+  "status": "errored"
+}
+{
+  "name": "workflow-worker",
+  "status": "errored"
+}
+{
+  "name": "teams-bot",
+  "status": "online"
+}
+
+================================================================================
+STEP 2: Restart workflow-api
+================================================================================
+$ pm2 restart workflow-api
+
+[PM2] Applying action restartProcessId on app [workflow-api](ids: [ 0, 1 ])
+[PM2] [workflow-api](0) ✓
+[PM2] [workflow-api](1) ✓
+
+$ pm2 show workflow-api
+
+status: online
+script path: /data/order-processing/app/services/workflow/dist/server.js
+uptime: 10s
+restarts: 1
+exec mode: cluster_mode
+node.js version: 24.11.1
+
+================================================================================
+STEP 3: Restart workflow-worker
+================================================================================
+$ pm2 restart workflow-worker
+
+[PM2] Applying action restartProcessId on app [workflow-worker](ids: [ 2, 3 ])
+[PM2] [workflow-worker](2) ✓
+[PM2] [workflow-worker](3) ✓
+
+$ pm2 show workflow-worker
+
+status: online
+script path: /data/order-processing/app/services/workflow/dist/worker.js
+uptime: 10s
+restarts: 15
+exec mode: cluster_mode
+node.js version: 24.11.1
+
+================================================================================
+STEP 4: Verify connectivity to Temporal
+================================================================================
+$ curl -s http://localhost:3005/health | jq
+
+{
+  "status": "healthy",
+  "temporal": "connected",
+  "timestamp": "2025-12-29T23:14:01.288Z"
+}
+
+$ pm2 logs workflow-worker --lines 20 --nostream
+
+2|workflow | Connected to Temporal at localhost:7233
+2|workflow | Worker created with configuration: {
+2|workflow |   namespace: 'default',
+2|workflow |   taskQueue: 'order-processing',
+2|workflow |   maxConcurrentWorkflowTasks: 10,
+2|workflow |   maxConcurrentActivityTasks: 20
+2|workflow | }
+2|workflow | Sent ready signal to PM2
+2|workflow | Starting Temporal worker on task queue: order-processing
+
+2|workflow | 2025-12-29T23:13:41.731Z [INFO] Workflow bundle created {
+2|workflow |   sdkComponent: 'worker',
+2|workflow |   taskQueue: 'order-processing',
+2|workflow |   size: '1.38MB'
+2|workflow | }
+2|workflow | 2025-12-29T23:13:41.954Z [INFO] Worker state changed {
+2|workflow |   sdkComponent: 'worker',
+2|workflow |   taskQueue: 'order-processing',
+2|workflow |   state: 'RUNNING'
+2|workflow | }
+
+================================================================================
+STEP 5: Check if worker registered with Temporal
+================================================================================
+$ docker exec temporal-server temporal task-queue describe --task-queue order-processing --namespace default --address temporal-server:7233
+
+Task Queue Statistics:
+    BuildID    TaskQueueType  ApproximateBacklogCount  ApproximateBacklogAge  BacklogIncreaseRate  TasksAddRate  TasksDispatchRate
+  UNVERSIONED  workflow                             0  0s                                       0             0                  0
+  UNVERSIONED  activity                             0  0s                                       0             0                  0
+Pollers:
+    BuildID    TaskQueueType      Identity      LastAccessTime  RatePerSecond
+  UNVERSIONED  activity       326212@pippai-vm  30 seconds ago         100000
+  UNVERSIONED  activity       326205@pippai-vm  30 seconds ago         100000
+  UNVERSIONED  workflow       326212@pippai-vm  30 seconds ago         100000
+  UNVERSIONED  workflow       326205@pippai-vm  30 seconds ago         100000
+
+================================================================================
+STEP 6: Full PM2 status and save
+================================================================================
+$ pm2 status
+
+┌────┬────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name               │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 5  │ teams-bot          │ default     │ 0.1.0   │ fork    │ 134071   │ 109m   │ 0    │ online    │ 0%       │ 95.8mb   │ azureus… │ disabled │
+│ 0  │ workflow-api       │ default     │ 0.1.0   │ cluster │ 325574   │ 56s    │ 1    │ online    │ 0%       │ 92.0mb   │ azureus… │ disabled │
+│ 1  │ workflow-api       │ default     │ 0.1.0   │ cluster │ 325594   │ 56s    │ 1    │ online    │ 0%       │ 86.7mb   │ azureus… │ disabled │
+│ 2  │ workflow-worker    │ default     │ 0.1.0   │ cluster │ 326205   │ 38s    │ 15   │ online    │ 0%       │ 163.3mb  │ azureus… │ disabled │
+│ 3  │ workflow-worker    │ default     │ 0.1.0   │ cluster │ 326212   │ 38s    │ 15   │ online    │ 0%       │ 160.9mb  │ azureus… │ disabled │
+└────┴────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+
+$ pm2 save
+
+[PM2] Saving current process list...
+[PM2] Successfully saved in /home/azureuser/.pm2/dump.pm2

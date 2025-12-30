@@ -1,0 +1,61 @@
+# Post-Manual Validation Commands Log
+# Run ID: 20251229_195114
+# Timestamp: 2025-12-29T21:25:00Z
+
+=== VALIDATION START ===
+
+# Step 1: Check .env file locations
+find /data/order-processing -name ".env" 2>/dev/null
+# Result: Found /data/order-processing/app/.env and /data/order-processing/app/services/teams-bot/.env
+
+# Step 2: Validate MicrosoftAppId format
+grep -E "^MICROSOFT_APP_ID=" /data/order-processing/app/.env | cut -d'=' -f2
+# Result: a5017080-a433-4de7-84a4-0a72ae1be0a8
+# Validation: VALID GUID format, matches expected value
+
+# Step 3: Validate MicrosoftAppPassword exists
+grep -E "^MICROSOFT_APP_PASSWORD=" /data/order-processing/app/.env | sed 's/=.*/=[REDACTED]/'
+# Result: MICROSOFT_APP_PASSWORD=[REDACTED] (40 chars, ends in ****kafe)
+
+# Step 4: Test token acquisition from Microsoft
+curl -s -X POST "https://login.microsoftonline.com/23da91a5-0480-4183-8bc1-d7b6dd33dd2e/oauth2/v2.0/token" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=${MICROSOFT_APP_ID}" \
+  -d "client_secret=${MICROSOFT_APP_PASSWORD}" \
+  -d "scope=https://api.botframework.com/.default"
+# Result: TOKEN_ACQUIRED, Bearer token, expires_in: 3599s
+
+# Step 5: Check PM2 status
+pm2 ls
+# Result: teams-bot was ERRORED with 31 restarts
+
+# Step 6: Diagnose teams-bot failure
+pm2 show teams-bot
+cd /data/order-processing/app/services/teams-bot && node dist/index.js 2>&1
+# Result: Error - MICROSOFT_APP_ID and MICROSOFT_APP_PASSWORD must be set in environment variables
+# Root cause: dotenv module not installed
+
+# Step 7: Fix - Install missing dotenv
+cd /data/order-processing/app/services/teams-bot && npm install dotenv
+# Result: added 2 packages
+
+# Step 8: Restart teams-bot
+cd /data/order-processing/app/services/teams-bot && pm2 delete teams-bot; pm2 start ecosystem.config.cjs
+# Result: teams-bot launched, status: online, pid: 134071
+
+# Step 9: Verify local endpoint
+curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:3978/api/messages
+# Result: 404 (expected for GET - POST only endpoint)
+
+# Step 10: Verify external endpoint
+curl -s -o /dev/null -w "%{http_code}" https://processing.pippaoflondon.co.uk/api/messages
+# Result: 404 (expected for GET - service is reachable)
+
+# Step 11: Check PM2 logs for startup confirmation
+pm2 logs teams-bot --lines 20 --nostream
+# Result: server.started event logged, port 3978, config shows correct appId and tenantId
+
+=== VALIDATION COMPLETE ===
+# Overall Status: PASS
+# All checks passed after fixing missing dotenv dependency

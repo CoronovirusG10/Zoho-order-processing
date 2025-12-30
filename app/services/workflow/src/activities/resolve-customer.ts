@@ -12,6 +12,7 @@
  */
 
 import { log } from '@temporalio/activity';
+import { getFeatureFlags } from '../config';
 
 /**
  * Cached customer structure from Zoho service
@@ -173,17 +174,24 @@ export function isResolveCustomerInitialized(): boolean {
  */
 export async function resolveCustomer(input: ResolveCustomerInput): Promise<ResolveCustomerOutput> {
   const { caseId, tenantId, correlationId, customerName: overrideName } = input;
+  const flags = getFeatureFlags();
 
   log.info('Starting customer resolution', {
     caseId,
     tenantId,
     hasOverrideName: !!overrideName,
+    zohoMode: flags.zohoMode,
+    useMock: flags.useMockCustomer,
   });
 
-  // If dependencies aren't initialized, use mock behavior
-  // This allows the activity to work during development
-  if (!casesRepository || !zohoCustomerService || !customerMatcher) {
-    log.warn('Dependencies not initialized, using mock behavior', { caseId });
+  // If dependencies aren't initialized or mock mode is forced, use mock behavior
+  const useMock = flags.useMockCustomer || !casesRepository || !zohoCustomerService || !customerMatcher;
+
+  if (useMock) {
+    log.info('Using mock customer resolution', {
+      caseId,
+      reason: flags.useMockCustomer ? 'ZOHO_MODE=mock' : 'Dependencies not initialized',
+    });
     return mockResolveCustomer(overrideName || 'Mock Customer');
   }
 

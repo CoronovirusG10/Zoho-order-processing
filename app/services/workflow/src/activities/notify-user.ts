@@ -19,7 +19,10 @@ export type NotificationType =
   | 'selection_needed'  // Ambiguous matches, need user selection
   | 'ready_for_approval' // Order ready for user approval before creating in Zoho
   | 'complete'          // Order created successfully in Zoho
-  | 'failed';           // Order processing failed
+  | 'failed'            // Order processing failed
+  | 'reminder'          // Reminder after waiting for user input
+  | 'escalation'        // Escalation notification (includes manager)
+  | 'timeout_warning';  // Final warning before auto-cancel
 
 // Issue severity levels (matching teams-bot IssueItem)
 export interface IssueItem {
@@ -87,6 +90,19 @@ export interface NotifyUserInput {
   zohoOrderId?: string;         // Legacy - use zohoResult instead
   zohoOrderNumber?: string;     // Legacy - use zohoResult instead
   auditBundleUrl?: string;      // For 'complete' type
+  auditManifestPath?: string;   // For 'complete' type - path to audit manifest in blob storage
+
+  // Fields for reminder/escalation/timeout notifications
+  waitContext?: HumanWaitContext;
+}
+
+// Context for human wait scenarios
+export interface HumanWaitContext {
+  waitType: 'corrections' | 'customer_selection' | 'item_selection' | 'approval';
+  waitDuration: string;
+  userId?: string;
+  managerUserId?: string;
+  timeUntilCancel?: string;
 }
 
 export interface NotifyUserOutput {
@@ -210,6 +226,12 @@ function buildNotificationCard(input: NotifyUserInput): Record<string, unknown> 
       return buildSuccessCard(input);
     case 'failed':
       return buildFailedCard(input);
+    case 'reminder':
+      return buildReminderCard(input);
+    case 'escalation':
+      return buildEscalationCard(input);
+    case 'timeout_warning':
+      return buildTimeoutWarningCard(input);
     default:
       return buildGenericCard(input);
   }
@@ -820,6 +842,290 @@ function buildFailedCard(input: NotifyUserInput): Record<string, unknown> {
           action: 'request_reupload',
           caseId: input.caseId,
           reason: 'retry_after_failure',
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Reminder card - shown when user hasn't responded after initial wait period
+ */
+function buildReminderCard(input: NotifyUserInput): Record<string, unknown> {
+  const context = input.waitContext;
+  const waitTypeLabels: Record<string, string> = {
+    corrections: 'review and correct issues',
+    customer_selection: 'select a customer',
+    item_selection: 'select items',
+    approval: 'approve the order',
+  };
+  const actionLabel = waitTypeLabels[context?.waitType || 'approval'] || 'take action';
+
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body: [
+      {
+        type: 'Container',
+        style: 'warning',
+        items: [
+          {
+            type: 'ColumnSet',
+            columns: [
+              {
+                type: 'Column',
+                width: 'auto',
+                items: [{ type: 'TextBlock', text: '\u23F0', size: 'ExtraLarge' }],
+              },
+              {
+                type: 'Column',
+                width: 'stretch',
+                items: [
+                  {
+                    type: 'TextBlock',
+                    weight: 'Bolder',
+                    size: 'Large',
+                    text: 'Reminder: Action Required',
+                    wrap: true,
+                    color: 'Warning',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: 'TextBlock',
+        text: `Case: ${input.caseId}`,
+        isSubtle: true,
+        wrap: true,
+        spacing: 'Small',
+      },
+      {
+        type: 'TextBlock',
+        text: `Your order has been pending for **${context?.waitDuration || '24 hours'}**.`,
+        wrap: true,
+        spacing: 'Medium',
+      },
+      {
+        type: 'TextBlock',
+        text: `Please ${actionLabel} to continue processing.`,
+        wrap: true,
+      },
+      {
+        type: 'TextBlock',
+        text: 'If no action is taken, this order may be escalated or cancelled.',
+        wrap: true,
+        isSubtle: true,
+        spacing: 'Small',
+      },
+    ],
+    actions: [
+      {
+        type: 'Action.Submit',
+        title: 'View Order Details',
+        style: 'positive',
+        data: {
+          action: 'view_pending_order',
+          caseId: input.caseId,
+          waitType: context?.waitType,
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Escalation card - shown when order has been waiting too long (includes manager notification)
+ */
+function buildEscalationCard(input: NotifyUserInput): Record<string, unknown> {
+  const context = input.waitContext;
+  const waitTypeLabels: Record<string, string> = {
+    corrections: 'corrections review',
+    customer_selection: 'customer selection',
+    item_selection: 'item selection',
+    approval: 'approval',
+  };
+  const actionLabel = waitTypeLabels[context?.waitType || 'approval'] || 'action';
+
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body: [
+      {
+        type: 'Container',
+        style: 'attention',
+        items: [
+          {
+            type: 'ColumnSet',
+            columns: [
+              {
+                type: 'Column',
+                width: 'auto',
+                items: [{ type: 'TextBlock', text: '\u26A0\uFE0F', size: 'ExtraLarge' }],
+              },
+              {
+                type: 'Column',
+                width: 'stretch',
+                items: [
+                  {
+                    type: 'TextBlock',
+                    weight: 'Bolder',
+                    size: 'Large',
+                    text: 'Escalation: Order Requires Immediate Attention',
+                    wrap: true,
+                    color: 'Attention',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: 'TextBlock',
+        text: `Case: ${input.caseId}`,
+        isSubtle: true,
+        wrap: true,
+        spacing: 'Small',
+      },
+      {
+        type: 'TextBlock',
+        text: `This order has been waiting **${context?.waitDuration || '48+ hours'}** for ${actionLabel}.`,
+        wrap: true,
+        spacing: 'Medium',
+      },
+      {
+        type: 'TextBlock',
+        text: 'This notification has been escalated. Please take immediate action to prevent automatic cancellation.',
+        wrap: true,
+        weight: 'Bolder',
+      },
+      ...(context?.managerUserId ? [
+        {
+          type: 'TextBlock',
+          text: `Manager has been notified.`,
+          wrap: true,
+          isSubtle: true,
+          spacing: 'Small',
+        },
+      ] : []),
+    ],
+    actions: [
+      {
+        type: 'Action.Submit',
+        title: 'Take Action Now',
+        style: 'positive',
+        data: {
+          action: 'view_pending_order',
+          caseId: input.caseId,
+          waitType: context?.waitType,
+          escalated: true,
+        },
+      },
+    ],
+  };
+}
+
+/**
+ * Timeout warning card - final warning before auto-cancel
+ */
+function buildTimeoutWarningCard(input: NotifyUserInput): Record<string, unknown> {
+  const context = input.waitContext;
+  const waitTypeLabels: Record<string, string> = {
+    corrections: 'corrections',
+    customer_selection: 'customer selection',
+    item_selection: 'item selection',
+    approval: 'approval',
+  };
+  const actionLabel = waitTypeLabels[context?.waitType || 'approval'] || 'action';
+
+  return {
+    $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+    type: 'AdaptiveCard',
+    version: '1.5',
+    body: [
+      {
+        type: 'Container',
+        style: 'attention',
+        items: [
+          {
+            type: 'ColumnSet',
+            columns: [
+              {
+                type: 'Column',
+                width: 'auto',
+                items: [{ type: 'TextBlock', text: '\uD83D\uDEA8', size: 'ExtraLarge' }],
+              },
+              {
+                type: 'Column',
+                width: 'stretch',
+                items: [
+                  {
+                    type: 'TextBlock',
+                    weight: 'Bolder',
+                    size: 'Large',
+                    text: 'URGENT: Order Will Be Cancelled',
+                    wrap: true,
+                    color: 'Attention',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        type: 'TextBlock',
+        text: `Case: ${input.caseId}`,
+        isSubtle: true,
+        wrap: true,
+        spacing: 'Small',
+      },
+      {
+        type: 'TextBlock',
+        text: `This order will be **automatically cancelled** in **${context?.timeUntilCancel || '24 hours'}** if no ${actionLabel} is received.`,
+        wrap: true,
+        spacing: 'Medium',
+        weight: 'Bolder',
+        color: 'Attention',
+      },
+      {
+        type: 'TextBlock',
+        text: `Total wait time: ${context?.waitDuration || '6+ days'}`,
+        wrap: true,
+        isSubtle: true,
+      },
+      {
+        type: 'TextBlock',
+        text: 'Please take action immediately to prevent cancellation.',
+        wrap: true,
+        spacing: 'Small',
+      },
+    ],
+    actions: [
+      {
+        type: 'Action.Submit',
+        title: 'Take Action Now',
+        style: 'positive',
+        data: {
+          action: 'view_pending_order',
+          caseId: input.caseId,
+          waitType: context?.waitType,
+          urgent: true,
+        },
+      },
+      {
+        type: 'Action.Submit',
+        title: 'Cancel Order',
+        style: 'destructive',
+        data: {
+          action: 'cancel_order',
+          caseId: input.caseId,
+          reason: 'user_cancelled_before_timeout',
         },
       },
     ],

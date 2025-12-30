@@ -1,0 +1,79 @@
+# Teams Readiness Verification Commands
+# Run ID: 20251229_195114
+# Date: 2025-12-29T21:36:00Z
+
+# Step 1: Find Teams app artifacts
+$ find . -maxdepth 6 -type f -name 'manifest.json' -o -name '*appPackage*' | sort
+./_codex_predeploy/20251229_195114/manifest.json
+./app/services/teams-bot/manifest/manifest.json
+./app/teams-app/manifest.json
+
+$ find . -maxdepth 6 -type f \( -name '*.png' -o -name 'color.png' -o -name 'outline.png' \) | head -20
+./app/teams-app/outline.png
+./app/teams-app/color.png
+./_codex_predeploy/20251229_195114/outline.png
+./_codex_predeploy/20251229_195114/color.png
+
+$ file /data/order-processing/_codex_predeploy/20251229_195114/color.png /data/order-processing/_codex_predeploy/20251229_195114/outline.png
+color.png:   PNG image data, 192 x 192, 8-bit/color RGBA, non-interlaced
+outline.png: PNG image data, 32 x 32, 8-bit/color RGBA, non-interlaced
+
+# Step 2: Verify PM2 process
+$ pm2 list
+┌────┬────────────────────┬─────────────┬─────────┬──────────┬────────┬──────┬───────────┐
+│ id │ name               │ mode    │ pid      │ uptime │ status    │
+├────┼────────────────────┼─────────┼──────────┼────────┼───────────┤
+│ 5  │ teams-bot          │ fork    │ 134071   │ 8m     │ online    │
+│ 0  │ workflow-api       │ cluster │ 4269     │ 86m    │ online    │
+│ 1  │ workflow-api       │ cluster │ 4276     │ 86m    │ online    │
+│ 2  │ workflow-worker    │ cluster │ 0        │ 0      │ errored   │
+│ 3  │ workflow-worker    │ cluster │ 0        │ 0      │ errored   │
+└────┴────────────────────┴─────────┴──────────┴────────┴───────────┘
+
+$ pm2 show teams-bot | grep -E '(script|status|exec_mode|pid|uptime|restart)'
+│ status            │ online                                                      │
+│ restarts          │ 0                                                           │
+│ uptime            │ 10m                                                         │
+│ script path       │ /data/order-processing/app/services/teams-bot/dist/index.js │
+
+# Step 3: Verify port 3978 listening
+$ ss -tlnp | grep -E ':(3978|3979|3980)'
+LISTEN 0      511                     *:3978             *:*    users:(("node /data/orde",pid=134071,fd=23))
+
+# Step 4: Verify nginx configuration
+$ grep -A 20 'api/messages' /etc/nginx/sites-enabled/processing*
+location /api/messages {
+        proxy_pass http://127.0.0.1:3978;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Content-Type $content_type;
+
+        # Extended timeout for bot responses
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+# Step 5: Test endpoints
+$ curl -s http://127.0.0.1:3978/health
+{"status":"healthy","service":"teams-bot","timestamp":"2025-12-29T21:36:05.720Z"}
+
+$ curl -s -X POST -H "Content-Type: application/json" -d '{"type": "message"}' http://127.0.0.1:3978/api/messages
+Unauthorized Access. Request is not authorized
+# ^^^ Expected - Bot Framework auth required for real requests
+
+$ curl -s -I https://processing.pippaoflondon.co.uk/api/messages | head -5
+HTTP/2 404
+server: nginx
+# ^^^ Expected for GET - POST only endpoint
+
+# Step 6: Verify Teams app package
+$ unzip -t /data/order-processing/_codex_predeploy/20251229_195114/teams-app.zip
+Archive:  /data/order-processing/_codex_predeploy/20251229_195114/teams-app.zip
+    testing: manifest.json            OK
+    testing: color.png                OK
+    testing: outline.png              OK
+No errors detected in compressed data

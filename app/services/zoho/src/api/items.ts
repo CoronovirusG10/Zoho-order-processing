@@ -4,9 +4,15 @@
  * Provides methods to list and search items in Zoho Books.
  * Never creates items - all items must exist in Zoho.
  * Supports GTIN lookup via custom field.
+ *
+ * Audit Logging:
+ * - All API requests/responses are logged to Azure Blob Storage
+ * - 5-year retention for compliance
+ * - Graceful degradation if audit logging fails
  */
 
 import axios, { AxiosError } from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ZohoItem,
   ZohoPaginatedResponse,
@@ -14,6 +20,7 @@ import {
   ZohoAuditLog,
 } from '../types.js';
 import { ZohoOAuthManager } from '../auth/oauth-manager.js';
+import { BlobAuditStore } from '../storage/blob-audit-store.js';
 
 export interface ListItemsOptions {
   status?: 'active' | 'inactive' | 'all';
@@ -21,13 +28,24 @@ export interface ListItemsOptions {
   sku?: string;
   page?: number;
   perPage?: number;
+  /** Correlation ID for audit logging */
+  correlationId?: string;
+  /** Case ID for audit logging */
+  caseId?: string;
+  /** Tenant ID for audit logging */
+  tenantId?: string;
 }
 
 export class ZohoItemsApi {
+  private readonly auditStore?: BlobAuditStore;
+
   constructor(
     private readonly oauth: ZohoOAuthManager,
-    private readonly gtinCustomFieldId?: string
-  ) {}
+    private readonly gtinCustomFieldId?: string,
+    auditStore?: BlobAuditStore
+  ) {
+    this.auditStore = auditStore;
+  }
 
   /**
    * List all items with optional filtering
@@ -36,6 +54,11 @@ export class ZohoItemsApi {
     const baseUrl = await this.oauth.getApiBaseUrl();
     const orgId = await this.oauth.getOrganizationId();
     const token = await this.oauth.getAccessToken();
+
+    const correlationId = options.correlationId || uuidv4();
+    const caseId = options.caseId || '';
+    const tenantId = options.tenantId || '';
+    const url = `${baseUrl}/books/v3/items`;
 
     const params: Record<string, string> = {
       organization_id: orgId,
@@ -63,9 +86,22 @@ export class ZohoItemsApi {
 
     const startTime = Date.now();
 
+    // Log request to blob storage before sending
+    if (this.auditStore) {
+      await this.auditStore.logApiRequest({
+        operation: 'items/list',
+        correlationId,
+        caseId,
+        tenantId,
+        method: 'GET',
+        url,
+        requestBody: { params: { ...params, organization_id: '[REDACTED]' } },
+      }).catch(err => console.warn('[ZohoItemsApi] Audit log request failed:', err));
+    }
+
     try {
       const response = await axios.get<ZohoPaginatedResponse<ZohoItem>>(
-        `${baseUrl}/books/v3/items`,
+        url,
         {
           params,
           headers: {
@@ -79,14 +115,30 @@ export class ZohoItemsApi {
       const duration = Date.now() - startTime;
       const items = response.data.data || [];
 
+      // Log successful response to blob storage
+      if (this.auditStore) {
+        await this.auditStore.logApiResponse({
+          operation: 'items/list',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: response.status,
+          responseBody: { count: items.length },
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoItemsApi] Audit log response failed:', err));
+      }
+
+      // Also log to console for backward compatibility
       this.logAudit({
-        correlation_id: '',
-        case_id: '',
+        correlation_id: correlationId,
+        case_id: caseId,
         timestamp: new Date().toISOString(),
         operation: 'item_lookup',
         request: {
           method: 'GET',
-          url: `${baseUrl}/books/v3/items`,
+          url,
         },
         response: {
           status: response.status,
@@ -98,6 +150,24 @@ export class ZohoItemsApi {
       return items;
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      // Log error response to blob storage
+      if (this.auditStore) {
+        const axiosError = axios.isAxiosError(error) ? error as AxiosError : null;
+        await this.auditStore.logApiResponse({
+          operation: 'items/list',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: axiosError?.response?.status || 0,
+          responseBody: axiosError?.response?.data as object | undefined,
+          errorMessage: (error as Error).message,
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoItemsApi] Audit log error failed:', err));
+      }
+
       this.handleApiError(error, 'item_lookup', duration);
       throw error;
     }
@@ -106,16 +176,37 @@ export class ZohoItemsApi {
   /**
    * Get a specific item by ID
    */
-  async getItem(itemId: string): Promise<ZohoItem | null> {
+  async getItem(
+    itemId: string,
+    options: { correlationId?: string; caseId?: string; tenantId?: string } = {}
+  ): Promise<ZohoItem | null> {
     const baseUrl = await this.oauth.getApiBaseUrl();
     const orgId = await this.oauth.getOrganizationId();
     const token = await this.oauth.getAccessToken();
 
+    const correlationId = options.correlationId || uuidv4();
+    const caseId = options.caseId || '';
+    const tenantId = options.tenantId || '';
+    const url = `${baseUrl}/books/v3/items/${itemId}`;
+
     const startTime = Date.now();
+
+    // Log request to blob storage before sending
+    if (this.auditStore) {
+      await this.auditStore.logApiRequest({
+        operation: 'items/get',
+        correlationId,
+        caseId,
+        tenantId,
+        method: 'GET',
+        url,
+        requestBody: { itemId },
+      }).catch(err => console.warn('[ZohoItemsApi] Audit log request failed:', err));
+    }
 
     try {
       const response = await axios.get<ZohoApiResponse<{ item: ZohoItem }>>(
-        `${baseUrl}/books/v3/items/${itemId}`,
+        url,
         {
           params: { organization_id: orgId },
           headers: {
@@ -128,14 +219,29 @@ export class ZohoItemsApi {
 
       const duration = Date.now() - startTime;
 
+      // Log successful response to blob storage
+      if (this.auditStore) {
+        await this.auditStore.logApiResponse({
+          operation: 'items/get',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: response.status,
+          responseBody: { found: !!response.data.data?.item },
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoItemsApi] Audit log response failed:', err));
+      }
+
       this.logAudit({
-        correlation_id: '',
-        case_id: '',
+        correlation_id: correlationId,
+        case_id: caseId,
         timestamp: new Date().toISOString(),
         operation: 'item_lookup',
         request: {
           method: 'GET',
-          url: `${baseUrl}/books/v3/items/${itemId}`,
+          url,
         },
         response: {
           status: response.status,
@@ -148,7 +254,38 @@ export class ZohoItemsApi {
       const duration = Date.now() - startTime;
 
       if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Log 404 as a valid response (not found)
+        if (this.auditStore) {
+          await this.auditStore.logApiResponse({
+            operation: 'items/get',
+            correlationId,
+            caseId,
+            tenantId,
+            method: 'GET',
+            url,
+            statusCode: 404,
+            responseBody: { found: false },
+            durationMs: duration,
+          }).catch(err => console.warn('[ZohoItemsApi] Audit log response failed:', err));
+        }
         return null;
+      }
+
+      // Log error response to blob storage
+      if (this.auditStore) {
+        const axiosError = axios.isAxiosError(error) ? error as AxiosError : null;
+        await this.auditStore.logApiResponse({
+          operation: 'items/get',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'GET',
+          url,
+          statusCode: axiosError?.response?.status || 0,
+          responseBody: axiosError?.response?.data as object | undefined,
+          errorMessage: (error as Error).message,
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoItemsApi] Audit log error failed:', err));
       }
 
       this.handleApiError(error, 'item_lookup', duration);

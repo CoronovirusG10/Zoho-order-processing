@@ -94,8 +94,10 @@ export class RetryQueue {
 
   /**
    * Mark an item as in progress
+   * @param itemId - The queue item ID
+   * @param _caseId - Optional caseId (for interface compatibility with CosmosRetryQueue)
    */
-  markInProgress(itemId: string): void {
+  markInProgress(itemId: string, _caseId?: string): void {
     const item = this.queue.get(itemId);
     if (!item) {
       throw new Error(`Queue item ${itemId} not found`);
@@ -112,21 +114,29 @@ export class RetryQueue {
 
   /**
    * Mark an item as succeeded (remove from queue)
+   * @param itemId - The queue item ID
+   * @param caseIdOrSalesOrderId - Either caseId (for interface compatibility) or salesOrderId
+   * @param salesOrderIdOrNumber - Either salesOrderId (when caseId provided) or salesOrderNumber
+   * @param salesOrderNumber - Optional salesOrderNumber (when all 4 params provided)
    */
   async markSucceeded(
     itemId: string,
-    salesOrderId: string,
-    salesOrderNumber: string
+    caseIdOrSalesOrderId: string,
+    salesOrderIdOrNumber: string,
+    salesOrderNumber?: string
   ): Promise<void> {
     const item = this.queue.get(itemId);
     if (!item) {
       throw new Error(`Queue item ${itemId} not found`);
     }
 
+    // Determine the actual salesOrderNumber based on how the method was called
+    const actualSalesOrderNumber = salesOrderNumber ?? salesOrderIdOrNumber;
+
     item.status = 'succeeded';
 
     console.log(
-      `[RetryQueue] Succeeded ${itemId} -> Zoho SO ${salesOrderNumber}`
+      `[RetryQueue] Succeeded ${itemId} -> Zoho SO ${actualSalesOrderNumber}`
     );
 
     // Remove from in-memory queue
@@ -139,12 +149,23 @@ export class RetryQueue {
 
   /**
    * Mark an item as failed and schedule next retry
+   * @param itemId - The queue item ID
+   * @param caseIdOrError - Either caseId (for interface compatibility) or Error object
+   * @param errorObj - Optional Error object (when caseId is provided)
+   * @returns true if abandoned, false if will retry
    */
-  async markFailed(itemId: string, error: Error): Promise<void> {
+  async markFailed(
+    itemId: string,
+    caseIdOrError: string | Error,
+    errorObj?: Error
+  ): Promise<boolean> {
     const item = this.queue.get(itemId);
     if (!item) {
       throw new Error(`Queue item ${itemId} not found`);
     }
+
+    // Determine the actual error based on how the method was called
+    const error = errorObj ?? (caseIdOrError instanceof Error ? caseIdOrError : new Error('Unknown error'));
 
     item.error_history.push({
       attempted_at: new Date().toISOString(),
@@ -164,6 +185,7 @@ export class RetryQueue {
       // await this.createOutboxEntry(item, 'retry_exhausted', { error: error.message });
 
       this.queue.delete(itemId);
+      return true; // Indicates abandoned
     } else {
       // Schedule next retry with exponential backoff
       const delay = this.calculateBackoffDelay(item.attempt_count);
@@ -178,6 +200,7 @@ export class RetryQueue {
 
       // TODO: Update in Cosmos DB
       // await this.updateCosmosDb(itemId, 'pending', { next_retry_at: nextRetryAt });
+      return false; // Not abandoned, will retry
     }
   }
 

@@ -1,0 +1,229 @@
+# System Test Suite - Command Log
+# Generated: 2025-12-29T23:16:46Z
+# Working Directory: /data/order-processing
+
+================================================================================
+TEST 1: Docker Health Check
+================================================================================
+COMMAND:
+for c in temporal-postgresql temporal-server temporal-ui; do
+  echo "$c: $(docker inspect $c --format '{{.State.Health.Status}}' 2>/dev/null || echo 'no-healthcheck')"
+done
+
+OUTPUT:
+temporal-postgresql: healthy
+temporal-server: healthy
+temporal-ui: no-healthcheck
+
+================================================================================
+TEST 2: PM2 Services
+================================================================================
+COMMAND:
+pm2 jlist | jq '.[] | {name, status: .pm2_env.status, restarts: .pm2_env.restart_time}'
+
+OUTPUT:
+{
+  "name": "workflow-api",
+  "status": "online",
+  "restarts": 1
+}
+{
+  "name": "workflow-api",
+  "status": "online",
+  "restarts": 1
+}
+{
+  "name": "workflow-worker",
+  "status": "online",
+  "restarts": 15
+}
+{
+  "name": "workflow-worker",
+  "status": "online",
+  "restarts": 15
+}
+{
+  "name": "teams-bot",
+  "status": "online",
+  "restarts": 0
+}
+
+================================================================================
+TEST 3: Port Availability
+================================================================================
+COMMAND:
+for port in 3005 3978 5432 7233 8088; do
+  nc -zv localhost $port 2>&1 | grep -q 'succeeded\|open' && echo "Port $port: OK" || echo "Port $port: FAILED"
+done
+
+OUTPUT:
+Port 3005: OK
+Port 3978: OK
+Port 5432: OK
+Port 7233: OK
+Port 8088: OK
+
+================================================================================
+TEST 4: Temporal Server Connectivity
+================================================================================
+COMMAND:
+docker exec temporal-server temporal operator namespace list --address temporal-server:7233
+
+OUTPUT:
+  NamespaceInfo.Name                    order-processing
+  NamespaceInfo.Id                      07e67b6d-980c-441e-8351-00304a5ff5e3
+  NamespaceInfo.Description             Order Processing Workflows
+  NamespaceInfo.State                   Registered
+  Config.WorkflowExecutionRetentionTtl  720h0m0s
+  ReplicationConfig.ActiveClusterName   active
+
+  NamespaceInfo.Name                    temporal-system
+  NamespaceInfo.Id                      32049b68-7872-4094-8e63-d0dd59896a83
+  NamespaceInfo.Description             Temporal internal system namespace
+  NamespaceInfo.State                   Registered
+
+  NamespaceInfo.Name                    default
+  NamespaceInfo.Id                      f51fa487-f31d-4d98-bfed-2970e050e55f
+  NamespaceInfo.Description             Default namespace for Temporal Server.
+  NamespaceInfo.State                   Registered
+
+================================================================================
+TEST 5: Namespace Exists (order-processing)
+================================================================================
+COMMAND:
+docker exec temporal-server temporal operator namespace describe order-processing --address temporal-server:7233
+
+OUTPUT:
+  NamespaceInfo.Name                    order-processing
+  NamespaceInfo.Id                      07e67b6d-980c-441e-8351-00304a5ff5e3
+  NamespaceInfo.Description             Order Processing Workflows
+  NamespaceInfo.State                   Registered
+  Config.WorkflowExecutionRetentionTtl  720h0m0s
+  ReplicationConfig.ActiveClusterName   active
+
+================================================================================
+TEST 6: Worker Registration
+================================================================================
+COMMAND:
+docker exec temporal-server temporal task-queue describe \
+  --task-queue order-processing \
+  --namespace order-processing \
+  --address temporal-server:7233
+
+OUTPUT:
+Task Queue Statistics:
+    BuildID    TaskQueueType  ApproximateBacklogCount  ApproximateBacklogAge  BacklogIncreaseRate  TasksAddRate  TasksDispatchRate
+  UNVERSIONED  activity                             0  0s                                       0             0                  0
+  UNVERSIONED  workflow                             0  0s                                       0             0                  0
+Pollers:
+  BuildID  TaskQueueType  Identity  LastAccessTime  RatePerSecond
+
+NOTE: No active pollers indicates workers may not be polling the task queue
+
+================================================================================
+TEST 7: Workflow API Health
+================================================================================
+COMMAND:
+curl -s http://localhost:3005/health | jq
+
+OUTPUT:
+{
+  "status": "healthy",
+  "temporal": "connected",
+  "timestamp": "2025-12-29T23:16:51.676Z"
+}
+
+================================================================================
+TEST 8: Teams Bot Health
+================================================================================
+COMMAND:
+curl -s http://localhost:3978/api/health
+
+OUTPUT:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>Cannot GET /api/health</pre>
+</body>
+</html>
+
+NOTE: Teams Bot does not expose /api/health endpoint - this is expected behavior
+PM2 Status: online, uptime 114m, 0 restarts
+
+================================================================================
+TEST 9: Production Domain
+================================================================================
+COMMAND:
+curl -s -o /dev/null -w '%{http_code}' https://processing.pippaoflondon.co.uk/api/messages
+
+OUTPUT:
+HTTP Status: 404
+
+NOTE: 404 is expected for GET request to /api/messages endpoint (POST only)
+
+================================================================================
+TEST 10: SSL Certificate Check
+================================================================================
+COMMAND:
+openssl s_client -connect processing.pippaoflondon.co.uk:443 -servername processing.pippaoflondon.co.uk </dev/null | openssl x509 -noout -dates -subject
+
+OUTPUT:
+notBefore=Dec 29 20:13:45 2025 GMT
+notAfter=Mar 29 20:13:44 2026 GMT
+subject=CN = processing.pippaoflondon.co.uk
+
+Domain Resolution:
+processing.pippaoflondon.co.uk has address 135.225.31.54
+
+================================================================================
+TEST 11: Azure Managed Identity
+================================================================================
+COMMAND:
+az account show --query '{name:name, id:id}' -o json
+
+OUTPUT:
+{
+  "id": "5bc1c173-058c-4d81-bed4-5610679d339f",
+  "name": "Azure subscription 1"
+}
+
+================================================================================
+TEST 12: Key Vault Access
+================================================================================
+COMMAND:
+az keyvault secret list --vault-name pippai-keyvault-dev --query 'length(@)'
+
+OUTPUT:
+92
+
+================================================================================
+TEST 13: Cosmos DB
+================================================================================
+COMMAND:
+az cosmosdb sql database list --account-name cosmos-visionarylab --resource-group pippai-rg --query '[].name' -o json
+
+OUTPUT:
+[
+  "visionarylab"
+]
+
+================================================================================
+ADDITIONAL CHECKS
+================================================================================
+
+Temporal UI Container Status:
+- Status: running
+- Running: true
+- Started: 2025-12-29T23:04:16.324455017Z
+- Port mapping: 8080/tcp -> 127.0.0.1:8088
+
+Teams Bot Process Info:
+- PM2 status: online
+- Uptime: 114m
+- Restarts: 0
+- Script: /data/order-processing/app/services/teams-bot/dist/index.js
+- Listening on: *:3978

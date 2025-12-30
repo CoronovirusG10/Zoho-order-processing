@@ -1,0 +1,104 @@
+# Port Conflict Resolution Commands Log
+# Executed: 2025-12-29 22:53 UTC
+# Task: Resolve port 8080 conflict between Temporal UI and pippai-help
+
+================================================================================
+STEP 1: Identify current port conflict
+================================================================================
+$ docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep -E '8080|temporal'
+
+OUTPUT:
+temporal-ui
+temporal-server       6933-6935/tcp, 6939/tcp, 7234-7235/tcp, 7239/tcp, 127.0.0.1:7233->7233/tcp
+temporal-postgresql   127.0.0.1:5432->5432/tcp
+pippai-help           0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+
+ANALYSIS:
+- pippai-help container binds to 0.0.0.0:8080 (all interfaces)
+- temporal-ui has NO exposed ports (port binding failed silently)
+- This confirms the port conflict
+
+================================================================================
+STEP 2: Read docker-compose file
+================================================================================
+$ cat /data/order-processing/app/services/workflow/docker-compose.temporal.yml
+
+ANALYSIS:
+- temporal-ui service configured with ports: "127.0.0.1:8080:8080"
+- This conflicts with pippai-help on 0.0.0.0:8080
+
+================================================================================
+STEP 3: Edit docker-compose.temporal.yml
+================================================================================
+FILE: /data/order-processing/app/services/workflow/docker-compose.temporal.yml
+
+CHANGE:
+  BEFORE (line 66):
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  AFTER (line 66):
+    ports:
+      - "127.0.0.1:8088:8080"
+
+EDIT RESULT: SUCCESS
+
+================================================================================
+STEP 4: Restart Temporal UI container
+================================================================================
+$ cd /data/order-processing/app/services/workflow && docker compose -f docker-compose.temporal.yml up -d temporal-ui
+
+OUTPUT:
+time="2025-12-29T22:53:25Z" level=warning msg="...the attribute `version` is obsolete..."
+ Network temporal-network  Creating
+ Network temporal-network  Created
+ Container temporal-postgresql  Creating
+ Container temporal-postgresql  Created
+ Container temporal-server  Creating
+ Container temporal-server  Created
+ Container temporal-ui  Creating
+ Container temporal-ui  Created
+ Container temporal-postgresql  Starting
+ Container temporal-postgresql  Started
+ Container temporal-postgresql  Waiting
+ Container temporal-postgresql  Healthy
+ Container temporal-server  Starting
+ Container temporal-server  Started
+ Container temporal-ui  Starting
+ Container temporal-ui  Started
+
+RESULT: SUCCESS - All temporal containers started
+
+================================================================================
+STEP 5: Verify Temporal UI accessibility on new port
+================================================================================
+$ docker ps --format 'table {{.Names}}\t{{.Ports}}' | grep -E '8080|8088|temporal'
+
+OUTPUT:
+temporal-ui           127.0.0.1:8088->8080/tcp
+temporal-server       6933-6935/tcp, 6939/tcp, 7234-7235/tcp, 7239/tcp, 127.0.0.1:7233->7233/tcp
+temporal-postgresql   127.0.0.1:5432->5432/tcp
+pippai-help           0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+
+RESULT: SUCCESS - temporal-ui now binds to port 8088
+
+$ curl -s --connect-timeout 5 http://localhost:8088 | head -20
+
+OUTPUT:
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    ...
+
+RESULT: SUCCESS - Temporal UI is accessible and returning HTML
+
+================================================================================
+SUMMARY
+================================================================================
+- Port conflict identified: pippai-help (0.0.0.0:8080) blocking temporal-ui
+- docker-compose.temporal.yml modified: 8080 -> 8088
+- Temporal stack restarted successfully
+- Temporal UI now accessible at http://localhost:8088
+- pippai-help unchanged at port 8080

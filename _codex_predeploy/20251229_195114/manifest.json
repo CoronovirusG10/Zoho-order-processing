@@ -1,0 +1,104 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "a5017080-a433-4de7-84a4-0a72ae1be0a8",
+  "developer": {
+    "name": "Pippa of London",
+    "websiteUrl": "https://processing.pippaoflondon.co.uk",
+    "privacyUrl": "https://processing.pippaoflondon.co.uk/privacy",
+    "termsOfUseUrl": "https://processing.pippaoflondon.co.uk/terms"
+  },
+  "name": {
+    "short": "Order Processing",
+    "full": "Order Processing Assistant"
+  },
+  "description": {
+    "short": "Process sales orders from Excel files via Teams chat",
+    "full": "Upload Excel order files in a personal chat, and the bot will extract, validate, and create orders in Zoho Books. View and manage your cases in the personal tab."
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "accentColor": "#5B5FC7",
+  "bots": [
+    {
+      "botId": "a5017080-a433-4de7-84a4-0a72ae1be0a8",
+      "scopes": [
+        "personal"
+      ],
+      "supportsFiles": true,
+      "isNotificationOnly": false,
+      "commandLists": [
+        {
+          "scopes": [
+            "personal"
+          ],
+          "commands": [
+            {
+              "title": "help",
+              "description": "Get help on how to use the Order Processing bot"
+            },
+            {
+              "title": "status",
+              "description": "Check the status of your recent orders"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "staticTabs": [
+    {
+      "entityId": "orders",
+      "name": "My Cases",
+      "contentUrl": "https://processing.pippaoflondon.co.uk/tab?context=orders",
+      "websiteUrl": "https://processing.pippaoflondon.co.uk/orders",
+      "scopes": [
+        "personal"
+      ]
+    },
+    {
+      "entityId": "team-orders",
+      "name": "Manager View",
+      "contentUrl": "https://processing.pippaoflondon.co.uk/tab?context=team-orders",
+      "websiteUrl": "https://processing.pippaoflondon.co.uk/team-orders",
+      "scopes": [
+        "personal"
+      ]
+    },
+    {
+      "entityId": "about",
+      "scopes": [
+        "personal"
+      ],
+      "name": "About"
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "processing.pippaoflondon.co.uk",
+    "token.botframework.com",
+    "login.microsoftonline.com"
+  ],
+  "webApplicationInfo": {
+    "id": "a5017080-a433-4de7-84a4-0a72ae1be0a8",
+    "resource": "api://processing.pippaoflondon.co.uk/a5017080-a433-4de7-84a4-0a72ae1be0a8"
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "ChatMessage.Read.Chat",
+          "type": "Application"
+        }
+      ]
+    }
+  },
+  "defaultInstallScope": "personal",
+  "defaultGroupCapability": {}
+}

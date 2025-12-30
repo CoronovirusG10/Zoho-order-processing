@@ -5,7 +5,44 @@
 An intelligent order intake automation system that enables salespeople to upload Excel spreadsheets via Microsoft Teams, automatically processes and validates the data using a multi-model AI committee, and creates Draft Sales Orders in Zoho Books.
 
 **Deployment Target:** Azure VM (`pippai-vm` in `pippai-rg`)
-**Last updated:** 2025-12-26
+**Production Domain:** `https://processing.pippaoflondon.co.uk`
+**Last updated:** 2025-12-30
+
+---
+
+## Deployment Status (2025-12-30)
+
+### ✅ DEPLOYED - 100% Complete
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Azure MI Access | ✅ PASS | Key Vault (92 secrets), Storage, Cosmos DB |
+| Cosmos DB Containers | ✅ PASS | 6 containers created |
+| Blob Storage | ✅ PASS | 4 containers created |
+| SSL/nginx | ✅ PASS | processing.pippaoflondon.co.uk operational |
+| Zoho Books | ✅ PASS | Sandbox API 4/4 endpoints working |
+| AI Models | ✅ PARTIAL | 10/12 models reachable |
+| Temporal Server | ✅ PASS | DNS fixed, namespace registered |
+| Temporal UI | ✅ PASS | Running on port 8088 |
+| Workflow Services | ✅ PASS | API & worker connected to Temporal |
+| Teams Bot | ✅ PASS | PM2 online, credentials validated |
+| Teams App | ✅ DEPLOYED | **Kozet** app deployed to 13 users |
+
+### Teams App Details
+
+| Item | Value |
+|------|-------|
+| **App Name** | Kozet |
+| **Teams App ID** | `ad7a6864-1acd-4d6a-afb4-32d53d37fed4` |
+| **Security Group** | Kozet Sales Users |
+| **App Policy** | KozetSales |
+| **Users** | 13 sales team members |
+
+**Next Steps (Validation):**
+1. Verify Kozet app visible in Teams (may take 24h for policy propagation)
+2. Test bot: send "help" command
+3. Test file upload workflow
+4. Verify personal tab loads correctly
 
 ---
 

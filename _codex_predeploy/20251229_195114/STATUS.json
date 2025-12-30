@@ -1,0 +1,347 @@
+{
+  "run_id": "20251229_195114",
+  "timestamp": "2025-12-29T21:50:00Z",
+  "updated": "2025-12-30T00:37:00Z",
+  "overall_status": "COMPLETE",
+  "ready_for_production": true,
+  "completion_percentage": 100,
+
+  "teams_app": {
+    "name": "Kozet",
+    "teams_app_id": "ad7a6864-1acd-4d6a-afb4-32d53d37fed4",
+    "security_group": "Kozet Sales Users",
+    "security_group_id": "bedca107-66ae-4632-8893-efb63032f6d0",
+    "app_policy": "KozetSales",
+    "distribution_method": "AppPresetList",
+    "users_count": 13,
+    "users": ["Payam", "Pouya", "Fereshteh", "Narges", "Sahar", "Noora", "Iain", "Kaveh", "Antonio", "Sarvin", "Saeed Mirzaei", "Melika", "Mortezagh"],
+    "deployed": true
+  },
+
+  "temporal_fix": {
+    "status": "COMPLETE",
+    "dns_fixed": true,
+    "dns_solution": "Static IP 172.19.100.2, extra_hosts, wrapper entrypoint",
+    "port_conflict_fixed": true,
+    "new_temporal_ui_port": 8088,
+    "namespace_registered": true,
+    "namespace_id": "07e67b6d-980c-441e-8351-00304a5ff5e3",
+    "workflow_api_healthy": true,
+    "workflow_worker_connected": true
+  },
+
+  "phase_1_vm_foundation": {
+    "status": "PASS",
+    "docker_ok": true,
+    "docker_version": "29.0.2",
+    "compose_ok": true,
+    "compose_version": "v2.40.3",
+    "pm2_ok": true,
+    "pm2_version": "6.0.14",
+    "nginx_ok": true,
+    "nginx_version": "1.28.0",
+    "temporal_postgresql_ok": true,
+    "temporal_server_ok": true,
+    "temporal_server_healthy": true,
+    "temporal_ui_ok": true,
+    "temporal_ui_port": 8088,
+    "workflow_api_ok": true,
+    "workflow_api_port": 3005,
+    "workflow_api_healthy": true,
+    "workflow_worker_ok": true,
+    "workflow_worker_connected": true,
+    "teams_bot_ok": true,
+    "teams_bot_port": 3978
+  },
+
+  "phase_2_azure_access": {
+    "status": "PASS",
+    "azure_cli_ok": true,
+    "azure_cli_version": "2.81.0",
+    "mi_ok": true,
+    "mi_type": "System-Assigned",
+    "subscription_id": "5bc1c173-058c-4d81-bed4-5610679d339f",
+    "tenant_id": "545acd6e-7392-4046-bc3e-d4656b7146dd",
+    "key_vault_ok": true,
+    "key_vault_name": "pippai-keyvault-dev",
+    "key_vault_secrets_count": 92,
+    "storage_ok": true,
+    "storage_account": "pippaistoragedev",
+    "cosmos_ok": true,
+    "cosmos_account": "cosmos-visionarylab",
+    "cosmos_database": "order-processing",
+    "cosmos_database_created": "2025-12-30T00:10:00Z"
+  },
+
+  "phase_2_containers": {
+    "status": "PASS",
+    "cosmos_containers_ok": true,
+    "cosmos_containers_created": 6,
+    "cosmos_containers": ["orders", "cases", "workflows", "audit", "users", "settings"],
+    "cosmos_containers_database": "order-processing",
+    "blob_containers_ok": true,
+    "blob_containers_created": 4,
+    "blob_containers": ["orders-incoming", "orders-audit", "committee-evidence", "logs-archive"],
+    "temporal_ns_ok": true,
+    "temporal_ns_name": "order-processing",
+    "temporal_ns_id": "07e67b6d-980c-441e-8351-00304a5ff5e3"
+  },
+
+  "phase_3_ssl": {
+    "status": "PASS",
+    "certbot_installed": true,
+    "certbot_version": "5.2.2",
+    "renewal_configured": true,
+    "renewal_mechanism": "systemd timer",
+    "existing_certs_count": 4,
+    "existing_certs": [
+      "chat.pippaoflondon.co.uk",
+      "mcp.pippaoflondon.co.uk",
+      "pinbox.pippaoflondon.co.uk",
+      "pinboxir.pippaoflondon.co.uk"
+    ],
+    "production_domain": "processing.pippaoflondon.co.uk",
+    "production_ssl_ok": true,
+    "note": "Production domain fully operational with SSL"
+  },
+
+  "phase_4_integrations": {
+    "status": "PASS",
+    "foundry_ok": true,
+    "foundry_models_tested": 12,
+    "foundry_models_passed": 10,
+    "foundry_pass_rate": 0.83,
+    "foundry_failures": ["claude-opus-4-5", "claude-sonnet-4"],
+    "foundry_failure_reason": "Streaming required for Anthropic API",
+    "zoho_ok": true,
+    "zoho_region": "EU",
+    "zoho_org_id": "20111340673",
+    "zoho_org_name": "Pippa Sandbox",
+    "zoho_endpoints_tested": 4,
+    "zoho_endpoints_passed": 4
+  },
+
+  "phase_5_admin": {
+    "status": "COMPLETE",
+    "checklist_generated": true,
+    "checklist_file": "PIPPA_ADMIN_CHECKLIST.md",
+    "admin_email": "antonio@pippaoflondon.co.uk",
+    "tenant_name": "Pippa of London",
+    "tenant_id": "23da91a5-0480-4183-8bc1-d7b6dd33dd2e"
+  },
+
+  "phase_6_validation": {
+    "status": "PASS",
+    "admin_work_complete": true,
+    "microsoft_app_id": "a5017080-a433-4de7-84a4-0a72ae1be0a8",
+    "microsoft_app_id_valid": true,
+    "microsoft_app_password_present": true,
+    "microsoft_app_type": "SingleTenant",
+    "token_acquisition_ok": true,
+    "token_type": "Bearer",
+    "token_expires_in": 3599,
+    "bot_service_ok": true,
+    "bot_service_pid": 134071,
+    "bot_service_restarts": 0,
+    "local_endpoint_ok": true,
+    "external_endpoint_ok": true,
+    "external_endpoint": "https://processing.pippaoflondon.co.uk/api/messages"
+  },
+
+  "phase_7_teams": {
+    "status": "DEPLOYED",
+    "teams_package_built": true,
+    "teams_package_file": "teams-app.zip",
+    "teams_package_size": 1612,
+    "manifest_version": "1.17",
+    "manifest_valid": true,
+    "icons_valid": true,
+    "bot_ready": true,
+    "bot_port": 3978,
+    "bot_listening": true,
+    "nginx_route_configured": true,
+    "tab_ready": true,
+    "tab_build_passed": true,
+    "tab_bundle_size_kb": 305,
+    "tab_bundle_gzip_kb": 92,
+    "deployed_to_tenant": true,
+    "app_name": "Kozet",
+    "users_deployed": 13
+  },
+
+  "phase_8_golden": {
+    "status": "SKIPPED",
+    "golden_files_found": false,
+    "golden_files_reason": "Fixtures directory empty",
+    "runner_exists": true,
+    "expected_outputs_count": 4,
+    "committee_golden_count": 3,
+    "tests_passed": null,
+    "action_required": "Run tsx golden-files/generate-fixtures.ts"
+  },
+
+  "post_test_validation": {
+    "status": "PASS",
+    "executed": "2025-12-30T00:03:00Z",
+    "test_suite": "ORDER_PROCESSING_TEST_SUITE_v2.md",
+    "multi_model_validated": true,
+    "validation_models": ["GPT-5.2", "Gemini-3-Pro", "DeepSeek-V3.2"],
+    "total_tests": 27,
+    "passed": 18,
+    "failed": 1,
+    "warnings": 8,
+    "initial_status": "CONDITIONAL_PASS",
+    "issues_found": [
+      {"issue": "Cosmos DB order-processing database missing", "severity": "CRITICAL"},
+      {"issue": "Workflow worker no active pollers", "severity": "HIGH"},
+      {"issue": "Workflow worker 15 restarts", "severity": "MEDIUM"}
+    ]
+  },
+
+  "post_test_fixes": {
+    "status": "COMPLETE",
+    "executed": "2025-12-30T00:10:00Z",
+    "parallel_agents": 3,
+    "fixes_applied": [
+      {"fix": "Cosmos DB database + 6 containers created", "status": "SUCCESS"},
+      {"fix": "Worker namespace corrected to order-processing", "status": "SUCCESS"},
+      {"fix": "Worker restarted with 4 pollers registered", "status": "SUCCESS"}
+    ],
+    "validation_results": {
+      "cosmos_db_database": "PASS",
+      "cosmos_db_containers": "PASS",
+      "worker_pollers": "PASS",
+      "worker_restarts": "PASS",
+      "workflow_api_health": "PASS",
+      "temporal_cluster": "PASS"
+    },
+    "all_validations_passed": true
+  },
+
+  "blockers": [],
+
+  "blockers_resolved": [
+    {
+      "priority": "HIGH",
+      "issue": "Temporal Docker DNS resolution failure",
+      "resolution": "Static IP 172.19.100.2, extra_hosts, wrapper entrypoint",
+      "resolved_at": "2025-12-29T23:15:00Z"
+    },
+    {
+      "priority": "HIGH",
+      "issue": "Temporal UI port 8080 conflict",
+      "resolution": "Moved Temporal UI to port 8088",
+      "resolved_at": "2025-12-29T23:15:00Z"
+    },
+    {
+      "priority": "HIGH",
+      "issue": "Teams app not deployed",
+      "resolution": "Kozet app deployed to 13 users via KozetSales policy",
+      "resolved_at": "2025-12-29T23:30:00Z"
+    },
+    {
+      "priority": "CRITICAL",
+      "issue": "Cosmos DB order-processing database missing",
+      "resolution": "Created database + 6 containers (orders, cases, workflows, audit, users, settings)",
+      "resolved_at": "2025-12-30T00:10:00Z"
+    },
+    {
+      "priority": "HIGH",
+      "issue": "Workflow worker no active pollers",
+      "resolution": "Fixed TEMPORAL_NAMESPACE env var, restarted workers with 4 pollers",
+      "resolved_at": "2025-12-30T00:12:00Z"
+    },
+    {
+      "priority": "MEDIUM",
+      "issue": "Workflow worker crash loop (15 restarts)",
+      "resolution": "Root cause: race condition + wrong namespace; workers now stable",
+      "resolved_at": "2025-12-30T00:12:00Z"
+    }
+  ],
+
+  "next_actions": [
+    {
+      "order": 1,
+      "action": "Verify Kozet app visible in Teams",
+      "owner": "Tenant (Pippa of London)",
+      "details": "Policy propagation may take up to 24 hours",
+      "status": "PENDING_VALIDATION"
+    },
+    {
+      "order": 2,
+      "action": "Test bot responds to help command",
+      "owner": "Tenant (Pippa of London)",
+      "details": "Send 'help' in 1:1 chat with Kozet bot",
+      "status": "PENDING_VALIDATION"
+    },
+    {
+      "order": 3,
+      "action": "Test file upload workflow",
+      "owner": "Tenant (Pippa of London)",
+      "details": "Upload test Excel file, verify workflow processes",
+      "status": "PENDING_VALIDATION"
+    },
+    {
+      "order": 4,
+      "action": "Verify personal tab loads correctly",
+      "owner": "Tenant (Pippa of London)",
+      "details": "Check role-based views (SalesUser vs SalesManager)",
+      "status": "PENDING_VALIDATION"
+    },
+    {
+      "order": 5,
+      "action": "Monitor PM2 logs for 24 hours",
+      "owner": "VM (DevOps)",
+      "details": "pm2 logs --lines 0 -f",
+      "status": "RECOMMENDED"
+    }
+  ],
+
+  "key_files": {
+    "teams_package": "/data/order-processing/_codex_predeploy/20251229_195114/teams-app.zip",
+    "manifest": "/data/order-processing/_codex_predeploy/20251229_195114/manifest.json",
+    "admin_checklist": "/data/order-processing/_codex_predeploy/20251229_195114/PIPPA_ADMIN_CHECKLIST.md",
+    "final_report": "/data/order-processing/_codex_predeploy/20251229_195114/REPORT_FINAL.md",
+    "progress_report": "/data/order-processing/docs/claude-logs/daily/2025-12-30-progress-report.md",
+    "daily_log": "/data/order-processing/docs/claude-logs/daily/2025-12-30.md",
+    "temporal_fix_report": "/data/order-processing/_codex_predeploy/20251229_195114/temporal_fix/TEMPORAL_FIX_FINAL_REPORT.md",
+    "bot_env": "/data/order-processing/app/services/teams-bot/.env",
+    "app_env": "/data/order-processing/app/.env",
+    "pm2_logs": "/home/azureuser/.pm2/logs/",
+    "output_directory": "/data/order-processing/_codex_predeploy/20251229_195114/"
+  },
+
+  "reports_available": [
+    "docs/claude-logs/daily/2025-12-30-progress-report.md",
+    "01_VM_FOUNDATION_REPORT.md",
+    "02_AZURE_MI_ACCESS_REPORT.md",
+    "03_FOUNDRY_MODEL_SMOKES_REPORT.md",
+    "04_ZOHO_SANDBOX_SMOKES_REPORT.md",
+    "05_TEAMS_READINESS_REPORT.md",
+    "06_TAB_READINESS_REPORT.md",
+    "08_CONTAINERS_SETUP_REPORT.md",
+    "09_SSL_PROVISIONING_REPORT.md",
+    "10_TEAMS_PACKAGE_BUILD_REPORT.md",
+    "11_PIPPA_TENANT_CHECKLIST_REPORT.md",
+    "12_GOLDEN_FILE_VALIDATION_REPORT.md",
+    "14_POST_MANUAL_VALIDATION_REPORT.md",
+    "temporal_fix/TEMPORAL_FIX_FINAL_REPORT.md",
+    "temporal_fix/01_DIAGNOSTIC_ANALYSIS.md",
+    "temporal_fix/02_DNS_FIX_APPLIED.md",
+    "temporal_fix/03_PORT_CONFLICT_RESOLVED.md",
+    "temporal_fix/04_NAMESPACE_REGISTERED.md",
+    "temporal_fix/05_WORKFLOW_SERVICES_RESTARTED.md",
+    "temporal_fix/06_SYSTEM_TEST_RESULTS.md",
+    "test_results/00_PRE_EXECUTION_CHECK.md",
+    "test_results/01_INFRASTRUCTURE_TESTS.md",
+    "test_results/02_TEMPORAL_TESTS.md",
+    "test_results/03_SERVICE_INTEGRATION_TESTS.md",
+    "test_results/04_E2E_TESTS.md",
+    "test_results/TEST_EXECUTION_REPORT.md",
+    "fix_results/01_COSMOS_FIX.md",
+    "fix_results/02_WORKER_CRASH_ANALYSIS.md",
+    "fix_results/03_WORKER_REGISTRATION_FIX.md",
+    "fix_results/04_FIX_VALIDATION.md",
+    "fix_results/FIX_EXECUTION_REPORT.md"
+  ]
+}

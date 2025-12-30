@@ -1,8 +1,31 @@
 # MVP and how-to (v1 safest possible)
 
-**Last updated:** 2025-12-21
+**Last updated:** 2025-12-30
 
 This is a concrete build plan for a pilot MVP that is safe and auditable.
+
+---
+
+## Current Deployment Status (2025-12-29)
+
+### ✅ DEPLOYED - 100% Complete
+
+| Milestone | Status | Notes |
+|-----------|--------|-------|
+| 1. Storage + Audit | ✅ COMPLETE | 4 blob containers, lifecycle configured |
+| 2. Case State + Idempotency | ✅ COMPLETE | 6 Cosmos containers created |
+| 3. Zoho Connectivity | ✅ COMPLETE | Sandbox API 4/4 endpoints working |
+| 4. Excel Parser | ✅ COMPLETE | Temporal fixed, workflow processing enabled |
+| 5. Teams Bot UX | ✅ COMPLETE | Bot online, credentials validated |
+| 6. Personal Tab UX | ✅ COMPLETE | Build passes, deployed |
+| 7. Committee | ✅ PARTIAL | 10/12 AI models reachable |
+| 8. Observability | ✅ COMPLETE | App Insights configured |
+
+**Production Domain:** `https://processing.pippaoflondon.co.uk`
+
+**Teams App:** Kozet (deployed to 13 users via KozetSales policy)
+
+**Status:** All blockers resolved. Ready for production validation.
 
 ---
 

@@ -47,9 +47,25 @@ export interface CaseMetadata {
 }
 
 export interface AdaptiveCardAction {
-  action: 'submit_corrections' | 'request_reupload' | 'approve_create' | 'request_changes';
+  action:
+    | 'submit_corrections'
+    | 'request_reupload'
+    | 'approve_create'
+    | 'request_changes'
+    | 'select_customer'
+    | 'select_item'
+    | 'submit_item_selections'
+    | 'skip_item'
+    | 'cancel_selection'
+    | 'confirm_cancel'
+    | 'dismiss';
   caseId: string;
   userNotes?: string;
+  // Selection-related fields
+  tenantId?: string;
+  workflowId?: string;
+  lineRow?: number;
+  selectionType?: 'customer' | 'items';
 }
 
 export interface BlobUploadResult {

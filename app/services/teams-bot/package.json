@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@azure/cosmos": "^4.2.0",
     "@azure/identity": "^4.5.0",
     "@azure/storage-blob": "^12.26.0",
     "@order-processing/shared": "*",

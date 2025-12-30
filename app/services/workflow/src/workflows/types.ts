@@ -358,7 +358,54 @@ export interface NotifyUserInput {
   issues?: unknown[];
   candidates?: unknown;
   zohoOrderId?: string;
+  /** Path to audit manifest in blob storage (for completion notifications) */
+  auditManifestPath?: string;
+  /** Wait context for reminder/escalation/timeout notifications */
+  waitContext?: HumanWaitContext;
 }
+
+/**
+ * Context for human wait scenarios (reminders, escalations, timeouts)
+ */
+export interface HumanWaitContext {
+  /** Type of wait (what action is being awaited) */
+  waitType: 'corrections' | 'customer_selection' | 'item_selection' | 'approval';
+  /** How long the workflow has been waiting */
+  waitDuration: string;
+  /** User who should respond */
+  userId?: string;
+  /** Manager to escalate to (if configured) */
+  managerUserId?: string;
+  /** Time until auto-cancel (for timeout_warning) */
+  timeUntilCancel?: string;
+}
+
+/**
+ * Duration string type compatible with Temporal.io Duration
+ * Examples: '24h', '48h', '1d', '7d', '5m', '30s'
+ */
+export type DurationString = `${number}${'ms' | 's' | 'm' | 'h' | 'd'}`;
+
+/**
+ * Configuration for human wait timeouts
+ */
+export interface HumanWaitTimeoutConfig {
+  /** Time until first reminder (e.g., '24h') */
+  reminderAfter: DurationString;
+  /** Time until escalation (e.g., '48h') */
+  escalationAfter: DurationString;
+  /** Maximum wait time before auto-cancel (e.g., '7d') */
+  maxWait: DurationString;
+}
+
+/**
+ * Default timeout configuration for human waits
+ */
+export const DEFAULT_HUMAN_WAIT_TIMEOUT: HumanWaitTimeoutConfig = {
+  reminderAfter: '24h',
+  escalationAfter: '48h',
+  maxWait: '7d',
+};
 
 /**
  * Types of notifications that can be sent to users
@@ -369,7 +416,10 @@ export type NotificationType =
   | 'selection_needed'
   | 'ready_for_approval'
   | 'complete'
-  | 'failed';
+  | 'failed'
+  | 'reminder'           // Reminder after waiting too long
+  | 'escalation'         // Escalation notification (manager included)
+  | 'timeout_warning';   // Final warning before auto-cancel
 
 /**
  * Output from NotifyUser activity
@@ -443,7 +493,10 @@ export interface UpdateCaseOutput {
  */
 export interface ApplyCorrectionsInput {
   caseId: string;
+  tenantId: string;
   corrections: CorrectionData;
+  submittedBy: string;
+  correlationId: string;
 }
 
 /**
@@ -451,6 +504,10 @@ export interface ApplyCorrectionsInput {
  */
 export interface ApplyCorrectionsOutput {
   success: boolean;
+  appliedCount?: number;
+  validationPassed?: boolean;
+  newVersion?: string;
+  errors?: string[];
 }
 
 /**
@@ -458,7 +515,10 @@ export interface ApplyCorrectionsOutput {
  */
 export interface ApplySelectionsInput {
   caseId: string;
+  tenantId: string;
   selections: SelectionData;
+  submittedBy: string;
+  correlationId: string;
 }
 
 /**
@@ -466,6 +526,10 @@ export interface ApplySelectionsInput {
  */
 export interface ApplySelectionsOutput {
   success: boolean;
+  customerApplied?: boolean;
+  itemsApplied?: number;
+  newVersion?: string;
+  errors?: string[];
 }
 
 // ============================================================================
@@ -492,4 +556,35 @@ export interface WorkflowExecutionContext {
   userId: string;
   startedAt: string;
   currentStep: string;
+}
+
+// ============================================================================
+// Finalize Audit Types
+// ============================================================================
+
+/**
+ * Input for FinalizeAudit activity
+ */
+export interface FinalizeAuditInput {
+  caseId: string;
+  tenantId: string;
+  userId?: string;
+  correlationId?: string;
+  /** Zoho order ID to include in audit manifest */
+  zohoOrderId?: string;
+}
+
+/**
+ * Output from FinalizeAudit activity
+ */
+export interface FinalizeAuditOutput {
+  success: boolean;
+  /** Path to the audit manifest in blob storage */
+  manifestPath?: string;
+  /** SHA-256 hash of the manifest */
+  manifestSha256?: string;
+  /** Number of artifacts collected */
+  artifactCount?: number;
+  /** Error message if failed */
+  error?: string;
 }

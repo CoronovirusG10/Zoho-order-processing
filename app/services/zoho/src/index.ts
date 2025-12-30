@@ -6,7 +6,13 @@
  */
 
 // Main client
-export { ZohoClient, type ZohoClientConfig } from './client.js';
+export {
+  ZohoClient,
+  type ZohoClientConfig,
+  type IFingerprintStore,
+  type IRetryQueue,
+  type IOutbox,
+} from './client.js';
 
 // OAuth
 export { ZohoOAuthManager, type OAuthManagerConfig } from './auth/oauth-manager.js';
@@ -55,6 +61,10 @@ export {
   type CosmosRetryQueueConfig,
   CosmosOutbox,
   type CosmosOutboxConfig,
+  initializeZohoPersistence,
+  tryInitializeZohoPersistence,
+  type ZohoPersistenceConfig,
+  type ZohoPersistenceStores,
 } from './persistence/index.js';
 
 // Storage (Blob Storage for audit)
@@ -62,6 +72,10 @@ export {
   BlobAuditStore,
   type BlobAuditStoreConfig,
   type SpreadsheetPriceAudit,
+  // API audit logging types for 5-year compliance
+  type ApiAuditLogEntry,
+  type LogApiRequestOptions,
+  type LogApiResponseOptions,
 } from './storage/index.js';
 
 // Types

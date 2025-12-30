@@ -32,6 +32,8 @@ export interface FinalizeAuditInput {
   tenantId: string;
   userId?: string;
   correlationId?: string;
+  /** Zoho order ID to include in audit manifest */
+  zohoOrderId?: string;
 }
 
 /**
@@ -151,9 +153,9 @@ const MANIFEST_VERSION = '1.0';
  * @returns Result with manifest path and artifact count
  */
 export async function finalizeAudit(input: FinalizeAuditInput): Promise<FinalizeAuditOutput> {
-  const { caseId, tenantId, userId, correlationId } = input;
+  const { caseId, tenantId, userId, correlationId, zohoOrderId } = input;
 
-  log.info('Starting audit finalization', { caseId, tenantId });
+  log.info('Starting audit finalization', { caseId, tenantId, zohoOrderId });
 
   try {
     // Initialize Azure Blob client
@@ -239,11 +241,13 @@ export async function finalizeAudit(input: FinalizeAuditInput): Promise<Finalize
     // Zoho payloads
     const zohoRequest = findArtifact(auditArtifacts, 'zoho/request.json');
     const zohoResponse = findArtifact(auditArtifacts, 'zoho/response.json');
-    if (zohoRequest || zohoResponse) {
+    // Use zohoOrderId from input (passed from workflow) or fallback to caseData
+    const finalZohoOrderId = zohoOrderId || caseData?.zohoOrderId;
+    if (zohoRequest || zohoResponse || finalZohoOrderId) {
       manifest.zoho = {
         request: zohoRequest,
         response: zohoResponse,
-        salesOrderId: caseData?.zohoOrderId,
+        salesOrderId: finalZohoOrderId,
         salesOrderNumber: caseData?.zohoOrderNumber,
       };
     }

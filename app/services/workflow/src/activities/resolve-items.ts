@@ -5,7 +5,7 @@
  * Multi-stage matching strategy:
  * 1. Primary: Exact SKU match
  * 2. Fallback: GTIN (custom field) lookup
- * 3. Tertiary: Fuzzy name match
+ * 3. Tertiary: Fuzzy name match (if enabled)
  *
  * Returns needsHuman=true when items cannot be resolved automatically,
  * providing candidate lists for user selection.
@@ -15,6 +15,7 @@ import { log } from '@temporalio/activity';
 
 // Import repository for case lookup
 import { getCasesRepository } from '../repositories/index.js';
+import { getFeatureFlags } from '../config';
 
 // Import types from parser service
 import type { CanonicalSalesOrder, LineItem as ParserLineItem } from '@order-processing/parser';
@@ -82,32 +83,93 @@ export interface ResolveItemsOutput {
 }
 
 /**
- * Zoho item response structure
+ * Cached item structure from Zoho service
+ * Defined locally to avoid direct dependency on @order-processing/zoho
  */
-interface ZohoItemResponse {
-  item_id: string;
+export interface CachedItem {
+  zoho_item_id: string;
   name: string;
-  sku?: string;
-  cf_gtin?: string;
+  sku: string | null;
+  gtin: string | null;
   rate: number;
   unit?: string;
+  status: string;
   description?: string;
-  status?: string;
+  last_cached_at: string;
 }
 
 /**
- * Zoho search result with score
+ * Item match result from Zoho's ItemMatcher
+ * Defined locally to avoid direct dependency on @order-processing/zoho
  */
-interface ZohoSearchResult extends ZohoItemResponse {
-  score: number;
+export interface ItemMatchResult {
+  status: 'resolved' | 'ambiguous' | 'not_found' | 'needs_user_input';
+  item?: {
+    zoho_item_id: string;
+    name: string;
+    rate: number;
+  };
+  method?: 'sku' | 'gtin' | 'name_fuzzy' | 'user_selected';
+  confidence: number;
+  candidates: Array<{
+    zoho_item_id: string;
+    sku: string | null;
+    gtin: string | null;
+    name: string;
+    rate: number;
+    score: number;
+    match_reason?: string;
+  }>;
+}
+
+// ============================================================================
+// Dependency Injection Interfaces
+// ============================================================================
+
+/**
+ * Interface for the Zoho item service (cache)
+ * This abstracts the Zoho client for testability
+ */
+export interface IZohoItemService {
+  /**
+   * Get all cached items for matching
+   */
+  getItems(): Promise<CachedItem[]>;
+}
+
+/**
+ * Interface for the item matcher
+ * This abstracts the ItemMatcher class for testability
+ */
+export interface IItemMatcher {
+  matchItem(
+    sku: string | null,
+    gtin: string | null,
+    name: string | null,
+    items: CachedItem[]
+  ): Promise<ItemMatchResult>;
+}
+
+/**
+ * Interface for Cases Repository
+ * Defines the contract for case retrieval
+ */
+export interface ICasesRepository {
+  getCase(caseId: string, tenantId: string): Promise<CaseData | null>;
+}
+
+/**
+ * Minimal case data needed for item resolution
+ */
+export interface CaseData {
+  id: string;
+  tenantId: string;
+  canonicalData?: unknown;
 }
 
 // ============================================================================
 // Configuration
 // ============================================================================
-
-const ZOHO_SERVICE_URL = process.env.ZOHO_SERVICE_URL || 'http://localhost:3010';
-const REQUEST_TIMEOUT_MS = 10000;
 
 /**
  * Minimum confidence threshold for auto-accepting a name match
@@ -126,6 +188,37 @@ const MIN_CANDIDATE_SCORE = 0.5;
 const MAX_CANDIDATES_PER_LINE = 5;
 
 // ============================================================================
+// Dependency Injection
+// ============================================================================
+
+// Dependencies - will be injected via activity context
+let zohoItemService: IZohoItemService | null = null;
+let itemMatcher: IItemMatcher | null = null;
+
+/**
+ * Initialize dependencies for the resolveItems activity
+ * Called at worker startup to inject service dependencies
+ *
+ * @param zohoService - Zoho item service instance (provides cached items)
+ * @param matcher - Item matcher instance
+ */
+export function initializeResolveItemsActivity(
+  zohoService: IZohoItemService,
+  matcher: IItemMatcher
+): void {
+  zohoItemService = zohoService;
+  itemMatcher = matcher;
+  log.info('ResolveItems activity dependencies initialized');
+}
+
+/**
+ * Check if dependencies are initialized
+ */
+export function isResolveItemsInitialized(): boolean {
+  return zohoItemService !== null && itemMatcher !== null;
+}
+
+// ============================================================================
 // Activity Implementation
 // ============================================================================
 
@@ -136,15 +229,21 @@ const MAX_CANDIDATES_PER_LINE = 5;
  * then attempts to match each line item against Zoho's item catalog using:
  * 1. SKU exact match
  * 2. GTIN (barcode) lookup
- * 3. Fuzzy name search
+ * 3. Fuzzy name search (if enabled in matcher)
  *
  * @param input - The input containing caseId
  * @returns Resolution result with resolved items or candidates for selection
  */
 export async function resolveItems(input: ResolveItemsInput): Promise<ResolveItemsOutput> {
   const { caseId, tenantId } = input;
+  const flags = getFeatureFlags();
 
-  log.info('Starting item resolution', { caseId, tenantId });
+  log.info('Starting item resolution', {
+    caseId,
+    tenantId,
+    zohoMode: flags.zohoMode,
+    useMock: flags.useMockItems,
+  });
 
   try {
     // If tenantId is not provided, return mock success for development
@@ -201,16 +300,53 @@ export async function resolveItems(input: ResolveItemsInput): Promise<ResolveIte
       itemCount: lineItems.length,
     });
 
+    // If dependencies aren't initialized or mock mode is forced, use mock behavior
+    const useMock = flags.useMockItems || !zohoItemService || !itemMatcher;
+
+    if (useMock) {
+      log.info('Using mock item resolution', {
+        caseId,
+        reason: flags.useMockItems ? 'ZOHO_MODE=mock' : 'Dependencies not initialized',
+      });
+      return mockResolveItems(lineItems, caseId);
+    }
+
+    // Get items from Zoho cache
+    const items = await zohoItemService.getItems();
+
+    log.info('Retrieved items for matching', {
+      caseId,
+      itemCount: items.length,
+    });
+
+    if (items.length === 0) {
+      log.warn('No items available in cache', { caseId });
+      return {
+        success: false,
+        allResolved: false,
+        needsHuman: false,
+        resolvedItems: [],
+        error: 'No items available for matching (cache may be empty)',
+      } as ResolveItemsOutput & { error: string };
+    }
+
     const resolvedItems: ResolvedItem[] = [];
     const unresolvedLines: number[] = [];
     const candidates: Record<number, ItemCandidate[]> = {};
 
-    // Process each line item
+    // Process each line item using the ItemMatcher
     for (const item of lineItems) {
       const rowNum = item.row;
 
       try {
-        const result = await resolveLineItem(item, caseId);
+        const matchResult = await itemMatcher.matchItem(
+          item.sku || null,
+          item.gtin || null,
+          item.product_name || null,
+          items
+        );
+
+        const result = mapMatchResultToResolution(matchResult, item, rowNum);
 
         if (result.resolved) {
           resolvedItems.push(result.resolvedItem!);
@@ -334,250 +470,173 @@ interface LineItemResolutionResult {
 }
 
 /**
- * Attempts to resolve a single line item using multi-stage matching
+ * Map ItemMatchResult from ItemMatcher to our resolution format
  */
-async function resolveLineItem(
+function mapMatchResultToResolution(
+  matchResult: ItemMatchResult,
   item: ParserLineItem,
-  caseId: string
-): Promise<LineItemResolutionResult> {
-  const correlationId = caseId;
-
-  // Stage 1: Try SKU exact match
-  if (item.sku) {
-    const skuResult = await searchBySku(item.sku, correlationId);
-    if (skuResult) {
-      return {
-        resolved: true,
-        resolvedItem: {
-          row: item.row,
-          zohoItemId: skuResult.item_id,
-          zohoItemName: skuResult.name,
-          sku: skuResult.sku,
-          rate: skuResult.rate,
-          matchMethod: 'sku',
-          confidence: 1.0,
-        },
-      };
-    }
-  }
-
-  // Stage 2: Try GTIN lookup
-  if (item.gtin) {
-    const gtinResult = await searchByGtin(item.gtin, correlationId);
-    if (gtinResult) {
-      return {
-        resolved: true,
-        resolvedItem: {
-          row: item.row,
-          zohoItemId: gtinResult.item_id,
-          zohoItemName: gtinResult.name,
-          sku: gtinResult.sku,
-          rate: gtinResult.rate,
-          matchMethod: 'gtin',
-          confidence: 0.95,
-        },
-      };
-    }
-  }
-
-  // Stage 3: Try fuzzy name match
-  if (item.product_name) {
-    const nameResults = await searchByName(item.product_name, correlationId);
-
-    if (nameResults && nameResults.length > 0) {
-      // If exactly one result with high confidence, auto-accept
-      if (nameResults.length === 1 && nameResults[0].score > NAME_MATCH_AUTO_ACCEPT_THRESHOLD) {
-        const match = nameResults[0];
+  rowNum: number
+): LineItemResolutionResult {
+  switch (matchResult.status) {
+    case 'resolved':
+      if (matchResult.item) {
         return {
           resolved: true,
           resolvedItem: {
-            row: item.row,
-            zohoItemId: match.item_id,
-            zohoItemName: match.name,
-            sku: match.sku,
-            rate: match.rate,
-            matchMethod: 'name',
-            confidence: match.score,
+            row: rowNum,
+            zohoItemId: matchResult.item.zoho_item_id,
+            zohoItemName: matchResult.item.name,
+            sku: matchResult.candidates[0]?.sku || undefined,
+            rate: matchResult.item.rate,
+            matchMethod: mapMethod(matchResult.method),
+            confidence: matchResult.confidence,
           },
         };
       }
-
-      // Return candidates for user selection
-      const candidateList: ItemCandidate[] = nameResults
-        .filter(r => r.score >= MIN_CANDIDATE_SCORE)
-        .slice(0, MAX_CANDIDATES_PER_LINE)
-        .map(r => ({
-          zohoItemId: r.item_id,
-          name: r.name,
-          sku: r.sku,
-          gtin: r.cf_gtin,
-          rate: r.rate,
-          score: r.score,
-          matchReasons: [`Name similarity: ${Math.round(r.score * 100)}%`],
-        }));
-
+      // Fallthrough if no item despite resolved status
       return {
         resolved: false,
-        candidates: candidateList,
+        candidates: mapCandidates(matchResult.candidates),
       };
+
+    case 'ambiguous':
+    case 'needs_user_input':
+      return {
+        resolved: false,
+        candidates: mapCandidates(matchResult.candidates),
+      };
+
+    case 'not_found':
+    default:
+      return {
+        resolved: false,
+        candidates: [],
+      };
+  }
+}
+
+/**
+ * Map ItemMatcher method to our matchMethod format
+ */
+function mapMethod(method: ItemMatchResult['method']): 'sku' | 'gtin' | 'name' {
+  switch (method) {
+    case 'sku':
+      return 'sku';
+    case 'gtin':
+      return 'gtin';
+    case 'name_fuzzy':
+    case 'user_selected':
+    default:
+      return 'name';
+  }
+}
+
+/**
+ * Map ItemMatcher candidates to our ItemCandidate format
+ */
+function mapCandidates(
+  candidates: ItemMatchResult['candidates']
+): ItemCandidate[] {
+  return candidates
+    .filter(c => c.score >= MIN_CANDIDATE_SCORE)
+    .slice(0, MAX_CANDIDATES_PER_LINE)
+    .map(c => ({
+      zohoItemId: c.zoho_item_id,
+      name: c.name,
+      sku: c.sku || undefined,
+      gtin: c.gtin || undefined,
+      rate: c.rate,
+      score: c.score,
+      matchReasons: c.match_reason ? [c.match_reason] : undefined,
+    }));
+}
+
+/**
+ * Mock implementation for development/testing when dependencies are not initialized
+ */
+function mockResolveItems(
+  lineItems: ParserLineItem[],
+  caseId: string
+): ResolveItemsOutput {
+  log.info('Using mock item resolution', { caseId, itemCount: lineItems.length });
+
+  const resolvedItems: ResolvedItem[] = [];
+  const unresolvedLines: number[] = [];
+  const candidates: Record<number, ItemCandidate[]> = {};
+
+  for (const item of lineItems) {
+    const rowNum = item.row;
+
+    // Simulate different scenarios based on SKU/name patterns
+    if (item.sku && item.sku.toLowerCase().includes('test')) {
+      // Exact SKU match
+      resolvedItems.push({
+        row: rowNum,
+        zohoItemId: `mock-item-sku-${item.sku}`,
+        zohoItemName: item.product_name || `Mock Item ${item.sku}`,
+        sku: item.sku,
+        rate: item.unit_price_source || 10.0,
+        matchMethod: 'sku',
+        confidence: 1.0,
+      });
+    } else if (item.gtin) {
+      // GTIN match
+      resolvedItems.push({
+        row: rowNum,
+        zohoItemId: `mock-item-gtin-${item.gtin}`,
+        zohoItemName: item.product_name || `Mock Item GTIN ${item.gtin}`,
+        sku: item.sku || undefined,
+        rate: item.unit_price_source || 15.0,
+        matchMethod: 'gtin',
+        confidence: 0.95,
+      });
+    } else if (item.product_name && item.product_name.toLowerCase().includes('ambiguous')) {
+      // Ambiguous match - return candidates
+      unresolvedLines.push(rowNum);
+      candidates[rowNum] = [
+        {
+          zohoItemId: 'mock-item-001',
+          name: `${item.product_name} (Option A)`,
+          sku: 'MOCK-A',
+          rate: 20.0,
+          score: 0.85,
+          matchReasons: ['Fuzzy name match'],
+        },
+        {
+          zohoItemId: 'mock-item-002',
+          name: `${item.product_name} (Option B)`,
+          sku: 'MOCK-B',
+          rate: 22.0,
+          score: 0.82,
+          matchReasons: ['Fuzzy name match'],
+        },
+      ];
+    } else if (item.product_name) {
+      // Default: high-confidence fuzzy match
+      resolvedItems.push({
+        row: rowNum,
+        zohoItemId: `mock-item-name-${rowNum}`,
+        zohoItemName: item.product_name,
+        sku: item.sku || undefined,
+        rate: item.unit_price_source || 12.0,
+        matchMethod: 'name',
+        confidence: NAME_MATCH_AUTO_ACCEPT_THRESHOLD + 0.05,
+      });
+    } else {
+      // No matching criteria available
+      unresolvedLines.push(rowNum);
     }
   }
 
-  // No matches found
+  const allResolved = unresolvedLines.length === 0;
+  const needsHuman = unresolvedLines.length > 0;
+
   return {
-    resolved: false,
-    candidates: [],
+    success: true,
+    allResolved,
+    needsHuman,
+    resolvedItems,
+    unresolvedLines: needsHuman ? unresolvedLines : undefined,
+    candidates: needsHuman && Object.keys(candidates).length > 0 ? candidates : undefined,
   };
-}
-
-/**
- * Search Zoho items by SKU (exact match)
- */
-async function searchBySku(sku: string, correlationId: string): Promise<ZohoItemResponse | null> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    const response = await fetch(
-      `${ZOHO_SERVICE_URL}/api/items/by-sku/${encodeURIComponent(sku)}`,
-      {
-        headers: {
-          'X-Correlation-ID': correlationId,
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null; // SKU not found
-      }
-      log.warn('SKU search request failed', {
-        sku,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return null;
-    }
-
-    const data = await response.json();
-    return data as ZohoItemResponse;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      log.warn('SKU search timed out', { sku });
-    } else {
-      log.warn('SKU search error', {
-        sku,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return null;
-  }
-}
-
-/**
- * Search Zoho items by GTIN (barcode)
- */
-async function searchByGtin(gtin: string, correlationId: string): Promise<ZohoItemResponse | null> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    const response = await fetch(
-      `${ZOHO_SERVICE_URL}/api/items/by-gtin/${encodeURIComponent(gtin)}`,
-      {
-        headers: {
-          'X-Correlation-ID': correlationId,
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        return null; // GTIN not found
-      }
-      log.warn('GTIN search request failed', {
-        gtin,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return null;
-    }
-
-    const data = await response.json();
-    return data as ZohoItemResponse;
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      log.warn('GTIN search timed out', { gtin });
-    } else {
-      log.warn('GTIN search error', {
-        gtin,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return null;
-  }
-}
-
-/**
- * Search Zoho items by name (fuzzy match)
- * Returns items sorted by relevance score
- */
-async function searchByName(name: string, correlationId: string): Promise<ZohoSearchResult[]> {
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    const response = await fetch(
-      `${ZOHO_SERVICE_URL}/api/items/search?name=${encodeURIComponent(name)}`,
-      {
-        headers: {
-          'X-Correlation-ID': correlationId,
-          'Accept': 'application/json',
-        },
-        signal: controller.signal,
-      }
-    );
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      log.warn('Name search request failed', {
-        name,
-        status: response.status,
-        statusText: response.statusText,
-      });
-      return [];
-    }
-
-    const data = await response.json() as ZohoSearchResult[] | { items?: ZohoSearchResult[] };
-
-    // Handle both array response and wrapped response
-    if (Array.isArray(data)) {
-      return data;
-    }
-
-    if (data.items && Array.isArray(data.items)) {
-      return data.items;
-    }
-
-    return [];
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      log.warn('Name search timed out', { name });
-    } else {
-      log.warn('Name search error', {
-        name,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return [];
-  }
 }

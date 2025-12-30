@@ -3,9 +3,15 @@
  *
  * Provides methods to create draft sales orders in Zoho Books.
  * Handles rate limiting (429), retries, and comprehensive audit logging.
+ *
+ * Audit Logging:
+ * - All API requests/responses are logged to Azure Blob Storage
+ * - 5-year retention for compliance
+ * - Graceful degradation if audit logging fails
  */
 
 import axios, { AxiosError } from 'axios';
+import { v4 as uuidv4 } from 'uuid';
 import {
   ZohoSalesOrder,
   ZohoSalesOrderPayload,
@@ -15,10 +21,12 @@ import {
   RateLimitInfo,
 } from '../types.js';
 import { ZohoOAuthManager } from '../auth/oauth-manager.js';
+import { BlobAuditStore } from '../storage/blob-audit-store.js';
 
 export interface CreateSalesOrderOptions {
   correlationId?: string;
   caseId?: string;
+  tenantId?: string;
   maxRetries?: number;
   retryDelayMs?: number;
   /** External order key for idempotency - stored in Zoho custom field */
@@ -31,8 +39,14 @@ export class ZohoSalesOrdersApi {
   private readonly defaultMaxRetries = 3;
   private readonly defaultRetryDelayMs = 1000;
   private readonly rateLimitRetryAfterMs = 60000; // 60 seconds default
+  private readonly auditStore?: BlobAuditStore;
 
-  constructor(private readonly oauth: ZohoOAuthManager) {}
+  constructor(
+    private readonly oauth: ZohoOAuthManager,
+    auditStore?: BlobAuditStore
+  ) {
+    this.auditStore = auditStore;
+  }
 
   /**
    * Create a draft sales order in Zoho Books
@@ -99,12 +113,27 @@ export class ZohoSalesOrdersApi {
     const token = await this.oauth.getAccessToken();
 
     const startTime = Date.now();
-    const correlationId = options.correlationId || '';
+    const correlationId = options.correlationId || uuidv4();
     const caseId = options.caseId || '';
+    const tenantId = options.tenantId || '';
+    const url = `${baseUrl}/books/v3/salesorders`;
+
+    // Log request to blob storage before sending
+    if (this.auditStore) {
+      await this.auditStore.logApiRequest({
+        operation: 'sales-orders/create',
+        correlationId,
+        caseId,
+        tenantId,
+        method: 'POST',
+        url,
+        requestBody: this.sanitizePayloadForLog(payload) as object,
+      }).catch(err => console.warn('[ZohoSalesOrdersApi] Audit log request failed:', err));
+    }
 
     try {
       const response = await axios.post<ZohoSalesOrderCreateResponse>(
-        `${baseUrl}/books/v3/salesorders`,
+        url,
         payload,
         {
           params: { organization_id: orgId },
@@ -119,7 +148,27 @@ export class ZohoSalesOrdersApi {
 
       const duration = Date.now() - startTime;
 
-      // Log successful request
+      // Log successful response to blob storage
+      if (this.auditStore) {
+        await this.auditStore.logApiResponse({
+          operation: 'sales-orders/create',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'POST',
+          url,
+          requestBody: this.sanitizePayloadForLog(payload) as object,
+          statusCode: response.status,
+          responseBody: {
+            salesorder_id: response.data.salesorder?.salesorder_id,
+            salesorder_number: response.data.salesorder?.salesorder_number,
+            status: response.data.salesorder?.status,
+          },
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoSalesOrdersApi] Audit log response failed:', err));
+      }
+
+      // Also log to console for backward compatibility
       this.logAudit({
         correlation_id: correlationId,
         case_id: caseId,
@@ -127,7 +176,7 @@ export class ZohoSalesOrdersApi {
         operation: 'salesorder_create',
         request: {
           method: 'POST',
-          url: `${baseUrl}/books/v3/salesorders`,
+          url,
           body: this.sanitizePayloadForLog(payload),
         },
         response: {
@@ -148,6 +197,25 @@ export class ZohoSalesOrdersApi {
       return response.data.salesorder;
     } catch (error) {
       const duration = Date.now() - startTime;
+
+      // Log error response to blob storage
+      if (this.auditStore) {
+        const axiosError = axios.isAxiosError(error) ? error as AxiosError : null;
+        await this.auditStore.logApiResponse({
+          operation: 'sales-orders/create',
+          correlationId,
+          caseId,
+          tenantId,
+          method: 'POST',
+          url,
+          requestBody: this.sanitizePayloadForLog(payload) as object,
+          statusCode: axiosError?.response?.status || 0,
+          responseBody: axiosError?.response?.data as object | undefined,
+          errorMessage: (error as Error).message,
+          durationMs: duration,
+        }).catch(err => console.warn('[ZohoSalesOrdersApi] Audit log error failed:', err));
+      }
+
       this.handleApiError(error, correlationId, caseId, duration, payload);
       throw error;
     }

@@ -1,0 +1,2 @@
+# Prevent committing environment-dump logs that may contain secrets
+**/fix_results/00_PRE_FIX_STATE.log

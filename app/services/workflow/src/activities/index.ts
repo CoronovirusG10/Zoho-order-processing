@@ -20,7 +20,11 @@ export {
   initializeResolveCustomerActivity,
   isResolveCustomerInitialized,
 } from './resolve-customer';
-export { resolveItems } from './resolve-items';
+export {
+  resolveItems,
+  initializeResolveItemsActivity,
+  isResolveItemsInitialized,
+} from './resolve-items';
 export { applyCorrections } from './apply-corrections';
 export { applySelections } from './apply-selections';
 export { createZohoDraft } from './create-zoho-draft';
@@ -43,7 +47,18 @@ export type {
   CachedCustomer,
   CustomerMatchResult,
 } from './resolve-customer';
-export type { ResolveItemsInput, ResolveItemsOutput, ItemCandidate, ResolvedItem } from './resolve-items';
+export type {
+  ResolveItemsInput,
+  ResolveItemsOutput,
+  ItemCandidate,
+  ResolvedItem,
+  IZohoItemService,
+  IItemMatcher,
+  ICasesRepository as IResolveItemsCasesRepository,
+  CaseData as ResolveItemsCaseData,
+  CachedItem as ResolveItemsCachedItem,
+  ItemMatchResult,
+} from './resolve-items';
 export type { ApplyCorrectionsInput, ApplyCorrectionsOutput, CorrectionData, FieldCorrection } from './apply-corrections';
 export type { ApplySelectionsInput, ApplySelectionsOutput, CustomerSelection, ItemSelection, UserSelections } from './apply-selections';
 export type { CreateZohoDraftInput, CreateZohoDraftOutput } from './create-zoho-draft';

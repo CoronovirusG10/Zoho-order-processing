@@ -3,16 +3,79 @@
  *
  * Stores Zoho API audit logs and failed payloads in Azure Blob Storage.
  * Provides 5+ year retention for compliance and debugging.
+ *
+ * Features:
+ * - API request/response logging with correlation IDs
+ * - Date-partitioned paths for efficient retention policies
+ * - Graceful degradation (never fails main operations)
+ * - Managed identity authentication
  */
 
 import { BlobServiceClient, ContainerClient, BlockBlobClient } from '@azure/storage-blob';
 import { DefaultAzureCredential } from '@azure/identity';
+import { v4 as uuidv4 } from 'uuid';
 import { ZohoAuditLog, ZohoSalesOrderPayload } from '../types.js';
 
 export interface BlobAuditStoreConfig {
   storageAccountUrl: string;
   auditContainer?: string;
   payloadContainer?: string;
+}
+
+/**
+ * Structure for API audit log entries
+ * Used for 5-year compliance logging of all Zoho API interactions
+ */
+export interface ApiAuditLogEntry {
+  id: string;                    // UUID
+  timestamp: string;             // ISO timestamp
+  correlationId: string;
+  caseId?: string;
+  tenantId?: string;
+
+  // Request details
+  operation: string;             // 'sales-orders/create', 'customers/search', etc.
+  method: string;                // HTTP method
+  url: string;
+  requestBody?: object;
+
+  // Response details
+  statusCode?: number;
+  responseBody?: object;
+  errorMessage?: string;
+
+  // Timing
+  durationMs?: number;
+}
+
+/**
+ * Options for logging an API request
+ */
+export interface LogApiRequestOptions {
+  operation: string;
+  correlationId: string;
+  caseId?: string;
+  tenantId?: string;
+  method: string;
+  url: string;
+  requestBody?: object;
+}
+
+/**
+ * Options for logging an API response
+ */
+export interface LogApiResponseOptions {
+  operation: string;
+  correlationId: string;
+  caseId?: string;
+  tenantId?: string;
+  method: string;
+  url: string;
+  requestBody?: object;
+  statusCode: number;
+  responseBody?: object;
+  errorMessage?: string;
+  durationMs: number;
 }
 
 export interface SpreadsheetPriceAudit {
@@ -296,5 +359,222 @@ export class BlobAuditStore {
     }
 
     return Buffer.concat(chunks).toString('utf-8');
+  }
+
+  // ==================== API Audit Logging Methods ====================
+
+  /**
+   * Log an API request before sending
+   * Path: audit/zoho/{year}/{month}/{day}/{operation}/{correlationId}-request.json
+   *
+   * @param options - Request details to log
+   * @returns The blob path where the log was stored, or null if logging failed
+   */
+  async logApiRequest(options: LogApiRequestOptions): Promise<string | null> {
+    try {
+      await this.initialize();
+
+      const entry: ApiAuditLogEntry = {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        correlationId: options.correlationId,
+        caseId: options.caseId,
+        tenantId: options.tenantId,
+        operation: options.operation,
+        method: options.method,
+        url: options.url,
+        requestBody: this.sanitizeRequestBody(options.requestBody),
+      };
+
+      const blobPath = this.buildApiAuditPath(options.operation, options.correlationId, 'request');
+      const blockBlob = this.auditContainer.getBlockBlobClient(blobPath);
+
+      const content = JSON.stringify(entry, null, 2);
+      await blockBlob.upload(content, Buffer.byteLength(content), {
+        blobHTTPHeaders: {
+          blobContentType: 'application/json',
+        },
+        metadata: {
+          correlation_id: options.correlationId,
+          case_id: options.caseId || '',
+          operation: options.operation,
+          type: 'request',
+        },
+      });
+
+      return blobPath;
+    } catch (error) {
+      // Graceful degradation - never fail main operations
+      console.warn('[BlobAuditStore] Failed to log API request:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Log an API response (success or error)
+   * Path: audit/zoho/{year}/{month}/{day}/{operation}/{correlationId}-response.json
+   *
+   * @param options - Response details to log
+   * @returns The blob path where the log was stored, or null if logging failed
+   */
+  async logApiResponse(options: LogApiResponseOptions): Promise<string | null> {
+    try {
+      await this.initialize();
+
+      const entry: ApiAuditLogEntry = {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        correlationId: options.correlationId,
+        caseId: options.caseId,
+        tenantId: options.tenantId,
+        operation: options.operation,
+        method: options.method,
+        url: options.url,
+        requestBody: this.sanitizeRequestBody(options.requestBody),
+        statusCode: options.statusCode,
+        responseBody: options.responseBody,
+        errorMessage: options.errorMessage,
+        durationMs: options.durationMs,
+      };
+
+      const blobPath = this.buildApiAuditPath(options.operation, options.correlationId, 'response');
+      const blockBlob = this.auditContainer.getBlockBlobClient(blobPath);
+
+      const content = JSON.stringify(entry, null, 2);
+      await blockBlob.upload(content, Buffer.byteLength(content), {
+        blobHTTPHeaders: {
+          blobContentType: 'application/json',
+        },
+        metadata: {
+          correlation_id: options.correlationId,
+          case_id: options.caseId || '',
+          operation: options.operation,
+          type: 'response',
+          status_code: String(options.statusCode),
+        },
+      });
+
+      return blobPath;
+    } catch (error) {
+      // Graceful degradation - never fail main operations
+      console.warn('[BlobAuditStore] Failed to log API response:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Log a complete API call (combined request + response)
+   * Use this for simpler logging when you don't need separate request/response logs
+   * Path: audit/zoho/{year}/{month}/{day}/{operation}/{correlationId}.json
+   *
+   * @param options - Complete request/response details
+   * @returns The blob path where the log was stored, or null if logging failed
+   */
+  async logApiCall(options: LogApiResponseOptions): Promise<string | null> {
+    try {
+      await this.initialize();
+
+      const entry: ApiAuditLogEntry = {
+        id: uuidv4(),
+        timestamp: new Date().toISOString(),
+        correlationId: options.correlationId,
+        caseId: options.caseId,
+        tenantId: options.tenantId,
+        operation: options.operation,
+        method: options.method,
+        url: options.url,
+        requestBody: this.sanitizeRequestBody(options.requestBody),
+        statusCode: options.statusCode,
+        responseBody: options.responseBody,
+        errorMessage: options.errorMessage,
+        durationMs: options.durationMs,
+      };
+
+      const blobPath = this.buildApiAuditPath(options.operation, options.correlationId);
+      const blockBlob = this.auditContainer.getBlockBlobClient(blobPath);
+
+      const content = JSON.stringify(entry, null, 2);
+      await blockBlob.upload(content, Buffer.byteLength(content), {
+        blobHTTPHeaders: {
+          blobContentType: 'application/json',
+        },
+        metadata: {
+          correlation_id: options.correlationId,
+          case_id: options.caseId || '',
+          operation: options.operation,
+          status_code: String(options.statusCode),
+          duration_ms: String(options.durationMs),
+        },
+      });
+
+      return blobPath;
+    } catch (error) {
+      // Graceful degradation - never fail main operations
+      console.warn('[BlobAuditStore] Failed to log API call:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Build date-partitioned path for API audit logs
+   * Format: audit/zoho/{year}/{month}/{day}/{operation}/{correlationId}[-suffix].json
+   */
+  private buildApiAuditPath(operation: string, correlationId: string, suffix?: string): string {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+
+    // Normalize operation to be path-safe (e.g., 'salesorder_create' -> 'sales-orders/create')
+    const normalizedOperation = operation.replace(/_/g, '-');
+
+    const filename = suffix
+      ? `${correlationId}-${suffix}.json`
+      : `${correlationId}.json`;
+
+    return `audit/zoho/${year}/${month}/${day}/${normalizedOperation}/${filename}`;
+  }
+
+  /**
+   * Sanitize request body to remove sensitive information
+   * Never log OAuth tokens, API keys, or other credentials
+   */
+  private sanitizeRequestBody(body?: object): object | undefined {
+    if (!body) return undefined;
+
+    // Deep clone to avoid modifying original
+    const sanitized = JSON.parse(JSON.stringify(body));
+
+    // Remove known sensitive fields
+    const sensitiveKeys = [
+      'password',
+      'secret',
+      'token',
+      'api_key',
+      'apiKey',
+      'authorization',
+      'Authorization',
+      'client_secret',
+      'clientSecret',
+      'access_token',
+      'accessToken',
+      'refresh_token',
+      'refreshToken',
+    ];
+
+    const redact = (obj: any): void => {
+      if (typeof obj !== 'object' || obj === null) return;
+
+      for (const key of Object.keys(obj)) {
+        if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive.toLowerCase()))) {
+          obj[key] = '[REDACTED]';
+        } else if (typeof obj[key] === 'object') {
+          redact(obj[key]);
+        }
+      }
+    };
+
+    redact(sanitized);
+    return sanitized;
   }
 }

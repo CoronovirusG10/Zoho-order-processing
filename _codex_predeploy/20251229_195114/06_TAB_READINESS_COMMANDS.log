@@ -1,0 +1,29 @@
+
+> @order-processing/teams-tab@1.0.0 type-check
+> tsc --noEmit
+
+
+> @order-processing/teams-tab@1.0.0 lint
+> eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0
+
+
+> @order-processing/teams-tab@1.0.0 build
+> tsc && vite build
+
+vite v6.4.1 building for production...
+transforming...
+✓ 544 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.70 kB │ gzip:  0.37 kB
+dist/assets/index-D3v0-wbN.css   24.42 kB │ gzip:  4.87 kB
+dist/assets/query-Bc34EP3Z.js    38.91 kB │ gzip: 11.98 kB │ map: 145.75 kB
+dist/assets/teams-CIKDRNS0.js    42.56 kB │ gzip: 14.67 kB │ map: 126.17 kB
+dist/assets/index-DT5SoonN.js    57.70 kB │ gzip: 15.23 kB │ map: 234.78 kB
+dist/assets/vendor-CRB3T2We.js  141.78 kB │ gzip: 45.52 kB │ map: 344.96 kB
+✓ built in 3.09s
+
+=== Build Summary ===
+All checks passed: type-check, lint, build
+Build time: 3.09s
+Total bundle: ~305kB (~92kB gzipped)

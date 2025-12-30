@@ -1,0 +1,100 @@
+# Temporal Docker DNS Fix - Command Log
+# Date: 2025-12-29 23:04 UTC
+# Issue: Docker DNS resolution failing in temporal-server container
+
+# === PHASE 1: Initial Diagnosis ===
+
+# Read docker-compose file
+cat /data/order-processing/app/services/workflow/docker-compose.temporal.yml
+
+# Identified problematic dns directive:
+#   dns:
+#     - 127.0.0.11
+
+# === PHASE 2: First Fix Attempt - Remove dns directive ===
+
+# Edited docker-compose.temporal.yml to remove dns directive
+# Restarted stack
+docker compose -f docker-compose.temporal.yml down
+docker compose -f docker-compose.temporal.yml up -d
+
+# Verification (FAILED - still had DNS issues)
+docker exec temporal-server nc -zv postgresql 5432
+# Result: nc: bad address 'postgresql'
+
+# === PHASE 3: Deep Diagnosis ===
+
+# Check container DNS config
+docker inspect temporal-server --format '{{json .HostConfig.Dns}}'
+# Result: null (correct)
+
+# Check network settings
+docker network inspect temporal-network
+# Result: All containers connected correctly
+
+# Direct IP test (WORKED)
+docker exec temporal-server nc -zv 172.19.0.2 5432
+# Result: 172.19.0.2 (172.19.0.2:5432) open
+
+# Test from PostgreSQL container (WORKED)
+docker exec temporal-postgresql ping -c 1 temporal
+# Result: PING temporal (172.19.0.3): 64 bytes - SUCCESS
+
+# === PHASE 4: Root Cause Discovery ===
+
+# Check resolv.conf and hosts file permissions
+docker exec -u 0 temporal-server ls -la /etc/hosts /etc/resolv.conf
+# Result: -rw-r----- (mode 640 - root only!)
+
+# Check running user
+docker exec temporal-server whoami
+# Result: temporal (uid 1000)
+
+# PROBLEM: Docker sets /etc/hosts and /etc/resolv.conf to mode 640
+# The temporal user cannot read these files for DNS resolution!
+
+# === PHASE 5: Solution Implementation ===
+
+# Created wrapper entrypoint script
+cat > /data/order-processing/app/services/workflow/temporal-entrypoint-wrapper.sh << 'EOF'
+#!/bin/sh
+# Wrapper script to fix DNS resolution before running Temporal entrypoint
+chmod 644 /etc/hosts /etc/resolv.conf 2>/dev/null || true
+exec /etc/temporal/entrypoint.sh "$@"
+EOF
+
+chmod +x /data/order-processing/app/services/workflow/temporal-entrypoint-wrapper.sh
+
+# Updated docker-compose.temporal.yml:
+# 1. Removed dns directive
+# 2. Added static IP for postgresql (172.19.100.2)
+# 3. Added extra_hosts for postgresql
+# 4. Added volume mount for wrapper script
+# 5. Added custom entrypoint
+# 6. Run as root (wrapper fixes perms, original entrypoint handles the rest)
+# 7. Fixed DYNAMIC_CONFIG_FILE_PATH (docker.yaml, not development-sql.yaml)
+
+# Restart with new configuration
+docker compose -f docker-compose.temporal.yml down
+docker compose -f docker-compose.temporal.yml up -d
+
+# Wait for stabilization
+sleep 30
+
+# === PHASE 6: Verification (SUCCESS) ===
+
+# Test DNS resolution
+docker exec temporal-server ping -c 1 postgresql
+# Result: PING postgresql (172.19.100.2): 64 bytes from 172.19.100.2 - SUCCESS
+
+# Test network connectivity
+docker exec temporal-server nc -zv postgresql 5432
+# Result: postgresql (172.19.100.2:5432) open - SUCCESS
+
+# Check health status
+docker inspect temporal-server --format '{{.State.Health.Status}}'
+# Result: healthy - SUCCESS
+
+# Check all services
+docker compose -f docker-compose.temporal.yml ps
+# All services: healthy and running

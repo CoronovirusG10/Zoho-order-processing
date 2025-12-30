@@ -4,6 +4,11 @@ import { FingerprintRepository } from '../repositories/fingerprint-repository.js
 import { CaseService } from './case-service.js';
 import { AuditService } from './audit-service.js';
 import { BlobService } from './blob-service.js';
+import {
+  ZohoClient,
+  tryInitializeZohoPersistence,
+  type ZohoPersistenceStores,
+} from '@order-processing/zoho';
 
 /**
  * Service factory for dependency injection
@@ -17,6 +22,9 @@ class ServiceFactory {
   private _caseService?: CaseService;
   private _auditService?: AuditService;
   private _blobService?: BlobService;
+  private _zohoClient?: ZohoClient;
+  private _zohoPersistence?: ZohoPersistenceStores | null;
+  private _zohoInitPromise?: Promise<void>;
 
   private constructor() {}
 
@@ -77,6 +85,70 @@ class ServiceFactory {
   }
 
   /**
+   * Get the ZohoClient with Cosmos persistence (if available)
+   * Must call initializeZohoClient() first to enable Cosmos persistence
+   */
+  get zohoClient(): ZohoClient {
+    if (!this._zohoClient) {
+      // Create with persistence stores if available, otherwise in-memory
+      const keyVaultUrl = process.env.KEY_VAULT_URL || '';
+      const gtinCustomFieldId = process.env.ZOHO_GTIN_CUSTOM_FIELD_ID;
+      const externalOrderKeyFieldId = process.env.ZOHO_EXTERNAL_ORDER_KEY_FIELD_ID;
+
+      if (this._zohoPersistence) {
+        this._zohoClient = new ZohoClient({
+          keyVaultUrl,
+          gtinCustomFieldId,
+          externalOrderKeyFieldId,
+          fingerprintStore: this._zohoPersistence.fingerprintStore,
+          retryQueue: this._zohoPersistence.retryQueue,
+          outbox: this._zohoPersistence.outbox,
+        });
+      } else {
+        // Fallback to in-memory storage
+        this._zohoClient = new ZohoClient({
+          keyVaultUrl,
+          gtinCustomFieldId,
+          externalOrderKeyFieldId,
+        });
+      }
+    }
+    return this._zohoClient;
+  }
+
+  /**
+   * Initialize the ZohoClient with Cosmos persistence
+   * Should be called during application startup
+   */
+  async initializeZohoClient(): Promise<void> {
+    // Use a promise to prevent concurrent initialization
+    if (this._zohoInitPromise) {
+      return this._zohoInitPromise;
+    }
+
+    this._zohoInitPromise = (async () => {
+      console.log('[ServiceFactory] Initializing Zoho client with Cosmos persistence...');
+
+      // Try to initialize Cosmos persistence
+      this._zohoPersistence = await tryInitializeZohoPersistence({
+        cosmosEndpoint: config.cosmos.endpoint,
+        cosmosDatabase: config.cosmos.databaseId,
+      });
+
+      if (this._zohoPersistence) {
+        console.log('[ServiceFactory] Zoho Cosmos persistence initialized successfully');
+      } else {
+        console.warn('[ServiceFactory] Zoho Cosmos persistence unavailable - using in-memory storage');
+      }
+
+      // Reset the client so it gets recreated with persistence
+      this._zohoClient = undefined;
+    })();
+
+    return this._zohoInitPromise;
+  }
+
+  /**
    * Reset all services (useful for testing)
    */
   reset(): void {
@@ -85,6 +157,9 @@ class ServiceFactory {
     this._caseService = undefined;
     this._auditService = undefined;
     this._blobService = undefined;
+    this._zohoClient = undefined;
+    this._zohoPersistence = undefined;
+    this._zohoInitPromise = undefined;
   }
 }
 

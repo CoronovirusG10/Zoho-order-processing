@@ -12,6 +12,7 @@
  */
 
 import { log } from '@temporalio/activity';
+import { getFeatureFlags } from '../config';
 
 // Input/Output interfaces
 export interface CreateZohoDraftInput {
@@ -65,8 +66,19 @@ interface ZohoCreateDraftResponse {
  */
 export async function createZohoDraft(input: CreateZohoDraftInput): Promise<CreateZohoDraftOutput> {
   const { caseId } = input;
+  const flags = getFeatureFlags();
 
-  log.info('Creating Zoho draft sales order', { caseId });
+  log.info('Creating Zoho draft sales order', {
+    caseId,
+    zohoMode: flags.zohoMode,
+    useMock: flags.useMockDraft,
+  });
+
+  // If mock mode is enabled, return mock success
+  if (flags.useMockDraft) {
+    log.info('Using mock Zoho draft creation (ZOHO_MODE=mock)', { caseId });
+    return mockCreateZohoDraft(caseId);
+  }
 
   try {
     // Step 1: Fetch the case data including canonical order
@@ -233,4 +245,28 @@ function isTransientError(error: unknown): boolean {
   }
 
   return false;
+}
+
+/**
+ * Mock implementation for development/testing
+ * Returns a simulated successful draft creation
+ */
+function mockCreateZohoDraft(caseId: string): CreateZohoDraftOutput {
+  // Generate mock IDs based on caseId for consistency
+  const mockOrderId = `mock-so-${caseId.substring(0, 8)}`;
+  const mockOrderNumber = `SO-MOCK-${Date.now().toString(36).toUpperCase()}`;
+
+  log.info('Mock Zoho draft created', {
+    caseId,
+    salesorder_id: mockOrderId,
+    salesorder_number: mockOrderNumber,
+  });
+
+  return {
+    success: true,
+    salesorder_id: mockOrderId,
+    salesorder_number: mockOrderNumber,
+    status: 'draft',
+    is_duplicate: false,
+  };
 }
