@@ -3,12 +3,19 @@
  * Enhanced with bilingual support (English and Farsi)
  */
 
-import { TurnContext } from 'botbuilder';
+import { TurnContext, CardFactory } from 'botbuilder';
 import { getCorrelationId } from '../middleware/correlation-middleware.js';
 import { createLogger } from '../middleware/logging-middleware.js';
 import { languageService, SupportedLanguage } from '../services/language-service.js';
+import { CaseService, CaseSummary } from '../services/case-service.js';
+import { TeamsChannelData } from '../types/teams-types.js';
 
 export class MessageHandler {
+  private caseService: CaseService;
+
+  constructor() {
+    this.caseService = new CaseService();
+  }
   async handle(context: TurnContext): Promise<void> {
     const correlationId = getCorrelationId(context);
     const logger = createLogger(correlationId);
@@ -155,29 +162,157 @@ export class MessageHandler {
   }
 
   private async sendStatusMessage(context: TurnContext, language: SupportedLanguage): Promise<void> {
-    // In a real implementation, this would query Cosmos DB for user's recent cases
-    const message = language === 'fa'
-      ? [
-          '**پرونده‌های اخیر شما**',
-          '',
-          'این قابلیت به زودی فعال می‌شود. شما قادر خواهید بود:',
-          '- تمام سفارش‌های ارسالی خود را مشاهده کنید',
-          '- وضعیت پردازش آنها را بررسی کنید',
-          '- بسته‌های حسابرسی را دانلود کنید',
-          '',
-          'در حال حاضر، لطفاً از تب "پرونده‌های من" در Teams استفاده کنید.',
-        ].join('\n')
-      : [
-          '**Your Recent Cases**',
-          '',
-          'This feature is coming soon. You will be able to:',
-          '- View all your submitted orders',
-          '- Check their processing status',
-          '- Download audit bundles',
-          '',
-          'For now, please use the "My Cases" tab in Teams.',
-        ].join('\n');
+    const correlationId = getCorrelationId(context);
+    const logger = createLogger(correlationId);
 
-    await context.sendActivity(message);
+    // Extract user ID and tenant ID from activity
+    const userId = context.activity.from?.aadObjectId || context.activity.from?.id || 'unknown';
+    const channelData = context.activity.channelData as TeamsChannelData | undefined;
+    const tenantId = channelData?.tenant?.id || 'default';
+
+    logger.info('Fetching status for user', { userId, tenantId });
+
+    try {
+      // Query recent cases from Cosmos DB
+      const cases = await this.caseService.getRecentCasesForUser(userId, tenantId, 10);
+
+      if (cases.length === 0) {
+        // No cases found - send simple message
+        const message = language === 'fa'
+          ? [
+              '**پرونده‌های اخیر شما**',
+              '',
+              'هیچ پرونده‌ای یافت نشد.',
+              '',
+              'برای شروع، یک فایل اکسل (.xlsx) آپلود کنید.',
+            ].join('\n')
+          : [
+              '**Your Recent Cases**',
+              '',
+              'No cases found.',
+              '',
+              'To get started, upload an Excel file (.xlsx).',
+            ].join('\n');
+
+        await context.sendActivity(message);
+        return;
+      }
+
+      // Build adaptive card with case list
+      const card = this.buildStatusCard(cases, language);
+      await context.sendActivity({ attachments: [CardFactory.adaptiveCard(card)] });
+    } catch (error) {
+      logger.error('Failed to fetch case status', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+
+      // Send fallback message
+      const message = language === 'fa'
+        ? 'متأسفانه در دریافت وضعیت پرونده‌ها مشکلی پیش آمد. لطفاً دوباره تلاش کنید.'
+        : 'Sorry, there was an error fetching your case status. Please try again.';
+
+      await context.sendActivity(message);
+    }
+  }
+
+  /**
+   * Build an adaptive card showing case status list
+   */
+  private buildStatusCard(cases: CaseSummary[], language: SupportedLanguage): object {
+    const title = language === 'fa' ? 'پرونده‌های اخیر شما' : 'Your Recent Cases';
+    const subtitle = language === 'fa'
+      ? `${cases.length} پرونده یافت شد`
+      : `${cases.length} case${cases.length === 1 ? '' : 's'} found`;
+
+    const caseItems = cases.map((c, index) => this.buildCaseFactSet(c, language, index));
+
+    return {
+      $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+      type: 'AdaptiveCard',
+      version: '1.4',
+      body: [
+        {
+          type: 'TextBlock',
+          text: title,
+          weight: 'bolder',
+          size: 'large',
+        },
+        {
+          type: 'TextBlock',
+          text: subtitle,
+          isSubtle: true,
+          spacing: 'none',
+        },
+        {
+          type: 'Container',
+          separator: true,
+          spacing: 'medium',
+          items: caseItems,
+        },
+      ],
+    };
+  }
+
+  /**
+   * Build a fact set for a single case
+   */
+  private buildCaseFactSet(c: CaseSummary, language: SupportedLanguage, index: number): object {
+    const labels = language === 'fa'
+      ? {
+          file: 'فایل',
+          status: 'وضعیت',
+          date: 'تاریخ',
+          order: 'شماره سفارش',
+          customer: 'مشتری',
+        }
+      : {
+          file: 'File',
+          status: 'Status',
+          date: 'Date',
+          order: 'Order #',
+          customer: 'Customer',
+        };
+
+    const facts: Array<{ title: string; value: string }> = [
+      { title: labels.file, value: c.fileName },
+      { title: labels.status, value: c.statusDisplay },
+      { title: labels.date, value: this.formatDate(c.createdAt, language) },
+    ];
+
+    if (c.zohoOrderNumber) {
+      facts.push({ title: labels.order, value: c.zohoOrderNumber });
+    }
+
+    if (c.customerName) {
+      facts.push({ title: labels.customer, value: c.customerName });
+    }
+
+    return {
+      type: 'Container',
+      separator: index > 0,
+      spacing: 'medium',
+      items: [
+        {
+          type: 'FactSet',
+          facts,
+        },
+      ],
+    };
+  }
+
+  /**
+   * Format date for display
+   */
+  private formatDate(date: Date, language: SupportedLanguage): string {
+    const options: Intl.DateTimeFormatOptions = {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    };
+
+    const locale = language === 'fa' ? 'fa-IR' : 'en-US';
+    return date.toLocaleDateString(locale, options);
   }
 }

@@ -8,9 +8,24 @@
 import { Worker, NativeConnection } from '@temporalio/worker';
 import * as activities from './activities';
 import path from 'path';
+import { initializeCosmosClient } from './repositories/index.js';
 
 async function run(): Promise<void> {
   console.log('Initializing Temporal worker...');
+
+  // Initialize Cosmos DB client (if endpoint is configured)
+  if (process.env.COSMOS_ENDPOINT) {
+    console.log('Initializing Cosmos DB client...');
+    try {
+      await initializeCosmosClient();
+      console.log('Cosmos DB client initialized successfully');
+    } catch (err) {
+      console.error('Failed to initialize Cosmos DB client:', err);
+      throw err;
+    }
+  } else {
+    console.warn('COSMOS_ENDPOINT not set - case persistence will be unavailable');
+  }
 
   // Connect to Temporal server
   const connection = await NativeConnection.connect({

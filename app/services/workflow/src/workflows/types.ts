@@ -257,6 +257,7 @@ export interface CommitteeDisagreement {
  */
 export interface ResolveCustomerInput {
   caseId: string;
+  tenantId: string;
 }
 
 /**
@@ -291,6 +292,7 @@ export interface CustomerCandidate {
  */
 export interface ResolveItemsInput {
   caseId: string;
+  tenantId: string;
 }
 
 /**
@@ -342,6 +344,8 @@ export interface CreateZohoDraftOutput {
   error?: string;
   /** Whether order was queued for later (Zoho unavailable) */
   queued?: boolean;
+  /** Whether the order was a duplicate (idempotency check) */
+  is_duplicate?: boolean;
 }
 
 /**
@@ -376,12 +380,36 @@ export interface NotifyUserOutput {
 }
 
 /**
+ * Event types for case updates
+ */
+export type UpdateCaseEventType =
+  | 'case_created'
+  | 'status_changed'
+  | 'file_stored'
+  | 'file_parsed'
+  | 'committee_completed'
+  | 'corrections_submitted'
+  | 'customer_resolved'
+  | 'customer_selection_submitted'
+  | 'items_resolved'
+  | 'item_selection_submitted'
+  | 'approval_received'
+  | 'zoho_draft_created'
+  | 'workflow_completed'
+  | 'workflow_failed'
+  | 'workflow_cancelled';
+
+/**
  * Input for UpdateCase activity
  */
 export interface UpdateCaseInput {
   caseId: string;
+  tenantId: string;
   status: CaseStatus;
   updates?: Record<string, unknown>;
+  eventType?: UpdateCaseEventType;
+  userId?: string;
+  correlationId?: string;
 }
 
 /**

@@ -177,10 +177,22 @@ export class FileUploadHandler {
       'application/vnd.ms-excel',
     ];
 
+    // Check direct MIME type (inline uploads)
     if (excelContentTypes.includes(attachment.contentType)) {
       return true;
     }
 
+    // Handle Teams file consent flow - when user uploads via file picker
+    // contentType is 'application/vnd.microsoft.teams.file.download.info'
+    // with actual file type in content.fileType
+    if (attachment.contentType === 'application/vnd.microsoft.teams.file.download.info') {
+      const fileType = attachment.content?.fileType?.toLowerCase() || '';
+      if (fileType === 'xlsx' || fileType === 'xls') {
+        return true;
+      }
+    }
+
+    // Fallback: check file extension from name
     const fileName = attachment.name?.toLowerCase() || '';
     return fileName.endsWith('.xlsx') || fileName.endsWith('.xls');
   }

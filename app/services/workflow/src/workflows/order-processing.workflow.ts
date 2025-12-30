@@ -296,7 +296,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('storing_file');
     log.info(`[${caseId}] Step 1: Storing uploaded file`);
-    await updateCase({ caseId, status: 'storing_file' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'storing_file', eventType: 'status_changed' });
 
     const storeResult = await storeFile({
       caseId,
@@ -317,7 +317,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('parsing_excel');
     log.info(`[${caseId}] Step 2: Parsing Excel file`);
-    await updateCase({ caseId, status: 'parsing' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'parsing', eventType: 'file_stored' });
 
     const parseResult: ParseExcelOutput = await parseExcel({ caseId });
 
@@ -363,7 +363,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('running_committee');
     log.info(`[${caseId}] Step 3: Running committee mapping validation`);
-    await updateCase({ caseId, status: 'running_committee' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'running_committee', eventType: 'file_parsed' });
 
     const committeeResult: RunCommitteeOutput = await runCommittee({ caseId });
 
@@ -378,7 +378,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         disagreements: committeeResult.disagreements,
       });
 
-      await updateCase({ caseId, status: 'awaiting_corrections' });
+      await updateCase({ caseId, tenantId, correlationId, status: 'awaiting_corrections', eventType: 'committee_completed' });
       await notifyUser({
         caseId,
         type: 'issues',
@@ -408,9 +408,9 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('resolving_customer');
     log.info(`[${caseId}] Step 4: Resolving customer against Zoho`);
-    await updateCase({ caseId, status: 'resolving_customer' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'resolving_customer', eventType: 'status_changed' });
 
-    const customerResult: ResolveCustomerOutput = await resolveCustomer({ caseId });
+    const customerResult: ResolveCustomerOutput = await resolveCustomer({ caseId, tenantId });
 
     if (!customerResult.success) {
       throw ApplicationFailure.nonRetryable('Customer resolution failed');
@@ -421,7 +421,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         candidateCount: customerResult.candidates?.length || 0,
       });
 
-      await updateCase({ caseId, status: 'awaiting_customer_selection' });
+      await updateCase({ caseId, tenantId, correlationId, status: 'awaiting_customer_selection', eventType: 'customer_resolved' });
       await notifyUser({
         caseId,
         type: 'selection_needed',
@@ -457,9 +457,9 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('resolving_items');
     log.info(`[${caseId}] Step 5: Resolving line items against Zoho catalog`);
-    await updateCase({ caseId, status: 'resolving_items' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'resolving_items', eventType: 'customer_resolved' });
 
-    const itemsResult: ResolveItemsOutput = await resolveItems({ caseId });
+    const itemsResult: ResolveItemsOutput = await resolveItems({ caseId, tenantId });
 
     if (!itemsResult.success) {
       throw ApplicationFailure.nonRetryable('Item resolution failed');
@@ -470,7 +470,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
         unresolvedLines: itemsResult.unresolvedLines,
       });
 
-      await updateCase({ caseId, status: 'awaiting_item_selection' });
+      await updateCase({ caseId, tenantId, correlationId, status: 'awaiting_item_selection', eventType: 'items_resolved' });
       await notifyUser({
         caseId,
         type: 'selection_needed',
@@ -503,7 +503,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('awaiting_approval', 'awaiting_approval');
     log.info(`[${caseId}] Step 6: Ready for approval, notifying user`);
-    await updateCase({ caseId, status: 'awaiting_approval' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'awaiting_approval', eventType: 'items_resolved' });
 
     await notifyUser({
       caseId,
@@ -523,7 +523,11 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
       await updateCase({
         caseId,
+        tenantId,
+        correlationId,
         status: 'cancelled',
+        eventType: 'workflow_cancelled',
+        userId: approvalEvent.approvedBy,
         updates: {
           cancelledBy: approvalEvent.approvedBy,
           cancelledAt: approvalEvent.approvedAt,
@@ -546,7 +550,7 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
     // -------------------------------------------------------------------------
     updateState('creating_zoho_draft');
     log.info(`[${caseId}] Step 7: Creating Zoho draft sales order`);
-    await updateCase({ caseId, status: 'creating_zoho_draft' });
+    await updateCase({ caseId, tenantId, correlationId, status: 'creating_zoho_draft', eventType: 'approval_received' });
 
     const zohoResult: CreateZohoDraftOutput = await createZohoDraftAggressive({ caseId });
 
@@ -568,7 +572,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
         await updateCase({
           caseId,
+          tenantId,
+          correlationId,
           status: 'queued_for_zoho',
+          eventType: 'status_changed',
         });
 
         return {
@@ -598,7 +605,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
     await updateCase({
       caseId,
+      tenantId,
+      correlationId,
       status: 'completed',
+      eventType: 'zoho_draft_created',
       updates: {
         completedAt: new Date().toISOString(),
         zohoSalesorderId: zohoResult.salesorder_id,
@@ -630,7 +640,10 @@ export async function orderProcessingWorkflow(input: OrderProcessingInput): Prom
 
     await updateCase({
       caseId,
+      tenantId,
+      correlationId,
       status: 'failed',
+      eventType: 'workflow_failed',
       updates: {
         failedAt: new Date().toISOString(),
         error: errorMessage,

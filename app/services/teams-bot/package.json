@@ -14,9 +14,10 @@
   "dependencies": {
     "@azure/identity": "^4.5.0",
     "@azure/storage-blob": "^12.26.0",
-    "@order-processing/types": "*",
     "@order-processing/shared": "*",
+    "@order-processing/types": "*",
     "botbuilder": "^4.23.0",
+    "dotenv": "^17.2.3",
     "express": "^4.21.0",
     "uuid": "^11.0.3"
   },
